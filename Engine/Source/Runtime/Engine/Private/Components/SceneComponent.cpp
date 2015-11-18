@@ -668,7 +668,7 @@ void USceneComponent::OnComponentDestroyed()
 			bool bNeedsDetach = true;
 			if (AttachParent)
 			{
-				bNeedsDetach = (Child->AttachTo(AttachParent) == false);
+				bNeedsDetach = false; Child->AttachTo(AttachParent);	// 4.10 faal
 			}
 			if (bNeedsDetach)
 			{

@@ -50,6 +50,8 @@ UPathFollowingComponent::UPathFollowingComponent(const FObjectInitializer& Objec
 
 	bStopOnOverlap = true;
 	Status = EPathFollowingStatus::Idle;
+
+	SegmentAcceptanceRadius = 0;
 }
 
 void UPathFollowingComponent::LogPathHelper(const AActor* LogOwner, FNavigationPath* InLogPath, const AActor* LogGoalActor)
@@ -984,7 +986,10 @@ bool UPathFollowingComponent::HasReachedCurrentTarget(const FVector& CurrentLoca
 	const float GoalRadius = 0.0f;
 	const float GoalHalfHeight = 0.0f;
 
-	return HasReachedInternal(CurrentTarget, GoalRadius, GoalHalfHeight, CurrentLocation, CurrentAcceptanceRadius, 0.05f);
+	// T6Edit
+	//return HasReachedInternal(CurrentTarget, GoalRadius, GoalHalfHeight, CurrentLocation, CurrentAcceptanceRadius, 0.05f);
+	return HasReachedInternal(CurrentTarget, GoalRadius, GoalHalfHeight, CurrentLocation, CurrentAcceptanceRadius != 0.0 ? CurrentAcceptanceRadius : SegmentAcceptanceRadius, 0.05f);
+	// /T6Edit
 }
 
 bool UPathFollowingComponent::HasReachedInternal(const FVector& GoalLocation, float GoalRadius, float GoalHalfHeight, const FVector& AgentLocation, float RadiusThreshold, bool bSuccessOnRadiusOverlap) const

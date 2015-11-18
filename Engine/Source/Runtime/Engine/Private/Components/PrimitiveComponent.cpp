@@ -1781,8 +1781,8 @@ bool UPrimitiveComponent::IsNavigationRelevant() const
 	}
 
 	const FCollisionResponseContainer& ResponseToChannels = GetCollisionResponseToChannels();
-	return IsCollisionEnabled() &&
-		(ResponseToChannels.GetResponse(ECC_Pawn) == ECR_Block || ResponseToChannels.GetResponse(ECC_Vehicle) == ECR_Block);
+	//return IsCollisionEnabled() && (ResponseToChannels.GetResponse(ECC_Pawn) == ECR_Block || ResponseToChannels.GetResponse(ECC_Vehicle) == ECR_Block);
+	return IsCollisionEnabled() && ResponseToChannels.GetResponse(ECC_NavigationRelevant) == ECR_Block;
 }
 
 FBox UPrimitiveComponent::GetNavigationBounds() const

@@ -123,6 +123,8 @@ class AIMODULE_API UPathFollowingComponent : public UActorComponent, public IAIR
 	/** delegate for move completion notify */
 	FMoveCompletedSignature OnMoveFinished;
 
+	float SegmentAcceptanceRadius;
+
 	// Begin UActorComponent Interface
 	virtual void TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction *ThisTickFunction) override;
 	// End UActorComponent Interface

@@ -24,6 +24,7 @@ UNavMovementComponent::UNavMovementComponent(const FObjectInitializer& ObjectIni
 	, bUpdateNavAgentWithOwnersCollision(true)
 	, bStopMovementAbortPaths(true)
 {
+	FeetMult = 1.0f;
 }
 
 FBasedPosition UNavMovementComponent::GetActorFeetLocationBased() const

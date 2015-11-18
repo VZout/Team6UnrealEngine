@@ -3,6 +3,8 @@
 #pragma once
 
 #include "Containers/BitArray.h"
+#include "Engine/EngineTypes.h"
+
 #include "NavigationTypes.generated.h"
 
 #define INVALID_NAVNODEREF (0)
@@ -500,6 +502,9 @@ struct ENGINE_API FNavDataConfig : public FNavAgentProperties
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Display)
 	FName Name;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Display)
+	TEnumAsByte<ECollisionChannel> CollisionChannel;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Display)
 	FColor Color;

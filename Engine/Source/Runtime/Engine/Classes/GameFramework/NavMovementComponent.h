@@ -28,6 +28,8 @@ class ENGINE_API UNavMovementComponent : public UMovementComponent
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Movement Capabilities", meta=(DisplayName="Movement Capabilities", Keywords="Nav Agent"))
 	FNavAgentProperties NavAgentProps;
 
+	float FeetMult;
+
 protected:
 	/** If set to true NavAgentProps' radius and height will be updated with Owner's collision capsule size */
 	UPROPERTY(EditAnywhere, Category=MovementComponent)
@@ -65,7 +67,12 @@ public:
 	/** @returns location of controlled actor - meaning center of collision bounding box */
 	FORCEINLINE FVector GetActorLocation() const { return UpdatedComponent ? UpdatedComponent->GetComponentLocation() : FVector(FLT_MAX); }
 	/** @returns location of controlled actor's "feet" meaning center of bottom of collision bounding box */
-	FORCEINLINE FVector GetActorFeetLocation() const { return UpdatedComponent ? (UpdatedComponent->GetComponentLocation() - FVector(0,0,UpdatedComponent->Bounds.BoxExtent.Z)) : FNavigationSystem::InvalidLocation; }
+
+	// T6Edit
+	//FORCEINLINE FVector GetActorFeetLocation() const { return UpdatedComponent ? (UpdatedComponent->GetComponentLocation() - FVector(0,0,UpdatedComponent->Bounds.BoxExtent.Z)) : FNavigationSystem::InvalidLocation; }
+	FORCEINLINE FVector GetActorFeetLocation() const { return UpdatedComponent ? (UpdatedComponent->GetComponentLocation() - FVector(0, 0, UpdatedComponent->Bounds.BoxExtent.Z * this->FeetMult)) : FNavigationSystem::InvalidLocation; }
+	// /T6edit
+	
 	/** @returns based location of controlled actor */
 	virtual FBasedPosition GetActorFeetLocationBased() const;
 	/** @returns navigation location of controlled actor */
