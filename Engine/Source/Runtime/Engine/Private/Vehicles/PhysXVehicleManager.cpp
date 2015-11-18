@@ -4,6 +4,7 @@
 #include "PhysicsPublic.h"
 #include "Vehicles/TireType.h"
 #include "Vehicles/WheeledVehicleMovementComponent.h"
+#include "Vehicles/T6VehicleComponentBase.h"
 
 #if WITH_VEHICLE
 
@@ -89,6 +90,10 @@ FPhysXVehicleManager::~FPhysXVehicleManager()
 	while( Vehicles.Num() > 0 )
 	{
 		RemoveVehicle( Vehicles.Last() );
+	}
+
+	while (T6Vehicles.Num() > 0) {
+		RemoveVehicle(T6Vehicles.Last());
 	}
 
 	// Release batch query data
@@ -242,6 +247,9 @@ void FPhysXVehicleManager::RemoveVehicle( TWeakObjectPtr<UWheeledVehicleMovement
 	case PxVehicleTypes::eDRIVE4W:
 		((PxVehicleDrive4W*)PVehicle)->free();
 		break;
+	case PxVehicleTypes::eDRIVENW:
+		((PxVehicleDriveNW*)PVehicle)->free();
+		break;
 	case PxVehicleTypes::eDRIVETANK:
 		((PxVehicleDriveTank*)PVehicle)->free();
 		break;
@@ -256,7 +264,7 @@ void FPhysXVehicleManager::RemoveVehicle( TWeakObjectPtr<UWheeledVehicleMovement
 
 void FPhysXVehicleManager::Update( float DeltaTime )
 {
-	if ( Vehicles.Num() == 0 )
+	if ( PVehicles.Num() == 0 )
 	{
 		return;
 	}
@@ -278,6 +286,10 @@ void FPhysXVehicleManager::Update( float DeltaTime )
 	for ( int32 i = Vehicles.Num() - 1; i >= 0; --i )
 	{
 		Vehicles[i]->TickVehicle( DeltaTime );
+	}
+
+	for (int32 i = T6Vehicles.Num() - 1; i >= 0; --i) {
+		T6Vehicles[i]->TickVehicle(DeltaTime);
 	}
 
 #if PX_DEBUG_VEHICLE_ON
@@ -303,6 +315,10 @@ void FPhysXVehicleManager::PreTick( float DeltaTime )
 	for (int32 i = 0; i < Vehicles.Num(); ++i)
 	{
 		Vehicles[i]->PreTick(DeltaTime);
+	}
+
+	for (int32 i = 0; i < T6Vehicles.Num(); ++i) {
+		T6Vehicles[i]->PreTick(DeltaTime);
 	}
 }
 
@@ -423,3 +439,111 @@ PxWheelQueryResult* FPhysXVehicleManager::GetWheelsStates_AssumesLocked(TWeakObj
 	}
 }
 #endif // WITH_PHYSX
+
+void FPhysXVehicleManager::AddVehicle(TWeakObjectPtr<class UT6VehicleComponentBase> Vehicle){
+	check(Vehicle != NULL);
+	check(Vehicle->PVehicle);
+
+	T6Vehicles.Add(Vehicle);
+	PVehicles.Add(Vehicle->PVehicle);
+
+	// init wheels' states
+	int32 NewIndex = PVehiclesWheelsStates.AddZeroed();
+	PxU32 NumWheels = Vehicle->PVehicle->mWheelsSimData.getNbWheels();
+	PVehiclesWheelsStates[NewIndex].nbWheelQueryResults = NumWheels;
+	PVehiclesWheelsStates[NewIndex].wheelQueryResults = new PxWheelQueryResult[NumWheels];
+
+	SetUpBatchedSceneQuery();
+}
+
+void FPhysXVehicleManager::RemoveVehicle(TWeakObjectPtr<class UT6VehicleComponentBase> Vehicle){
+	check(Vehicle != NULL);
+	check(Vehicle->PVehicle);
+
+	PxVehicleWheels* PVehicle = Vehicle->PVehicle;
+
+	int32 RemovedIndex = T6Vehicles.Find(Vehicle);
+
+	T6Vehicles.Remove(Vehicle);
+	PVehicles.Remove(PVehicle);
+
+	delete[] PVehiclesWheelsStates[RemovedIndex].wheelQueryResults;
+	PVehiclesWheelsStates.RemoveAt(RemovedIndex); // LOC_MOD double check this
+	//PVehiclesWheelsStates.Remove(PVehiclesWheelsStates[RemovedIndex]);
+
+	if (PVehicle == TelemetryVehicle) {
+		TelemetryVehicle = NULL;
+	}
+
+	switch (PVehicle->getVehicleType()) {
+	case PxVehicleTypes::eDRIVE4W:
+		((PxVehicleDrive4W*)PVehicle)->free();
+		break;
+	case PxVehicleTypes::eDRIVENW:
+		((PxVehicleDriveNW*)PVehicle)->free();
+		break;
+	case PxVehicleTypes::eDRIVETANK:
+		((PxVehicleDriveTank*)PVehicle)->free();
+		break;
+	case PxVehicleTypes::eNODRIVE:
+		((PxVehicleNoDrive*)PVehicle)->free();
+		break;
+	default:
+		checkf(0, TEXT("Unsupported vehicle type"));
+		break;
+	}
+}
+
+void FPhysXVehicleManager::SetRecordTelemetry(TWeakObjectPtr<class UT6VehicleComponentBase> Vehicle, bool bRecord){
+#if PX_DEBUG_VEHICLE_ON
+	if (Vehicle != NULL && Vehicle->PVehicle != NULL) {
+		PxVehicleWheels* PVehicle = Vehicle->PVehicle;
+
+		if (bRecord) {
+			int32 VehicleIndex = T6Vehicles.Find(Vehicle);
+
+			if (VehicleIndex != INDEX_NONE) {
+				// Make sure telemetry is setup
+				SetupTelemetryData();
+
+				TelemetryVehicle = PVehicle;
+
+				if (VehicleIndex != 0) {
+					T6Vehicles.Swap(0, VehicleIndex);
+					PVehicles.Swap(0, VehicleIndex);
+					PVehiclesWheelsStates.Swap(0, VehicleIndex);
+				}
+			}
+		}
+		else {
+			if (PVehicle == TelemetryVehicle) {
+				TelemetryVehicle = NULL;
+			}
+		}
+	}
+
+#endif
+}
+
+PxWheelQueryResult* FPhysXVehicleManager::GetWheelsStates_AssumesLocked(TWeakObjectPtr<class UT6VehicleComponentBase> Vehicle) {
+	int32 Index = T6Vehicles.Find(Vehicle);
+
+	if (Index != INDEX_NONE) {
+		return PVehiclesWheelsStates[Index].wheelQueryResults;
+	}
+	else {
+		return NULL;
+	}
+}
+
+PxVehicleWheelQueryResult* FPhysXVehicleManager::GetVehicleState_AssumesLocked(TWeakObjectPtr<class UT6VehicleComponentBase> Vehicle) {
+	int32 Index = T6Vehicles.Find(Vehicle);
+
+	if (Index != INDEX_NONE) {
+		return &PVehiclesWheelsStates[Index];
+	}
+	else {
+		return NULL;
+	}
+}
+
