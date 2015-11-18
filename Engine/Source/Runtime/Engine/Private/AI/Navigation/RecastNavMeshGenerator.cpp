@@ -1804,12 +1804,18 @@ void FRecastTileGenerator::GatherGeometry(const FRecastNavMeshGenerator& ParentG
 	}
 	const FNavDataConfig& OwnerNavDataConfig = ParentGenerator.GetOwner()->GetConfig();
 
+	ECollisionChannel Channel = OwnerNavDataConfig.CollisionChannel; // t6// OwnerNavDataConfig.Name == "Pedestrian" ? ECC_Pawn : ECC_Vehicle;	// Todo: channel ophalen uit de ownerconfig
+
 	for (FNavigationOctree::TConstElementBoxIterator<FNavigationOctree::DefaultStackAllocator> It(*NavigationOctree, ParentGenerator.GrowBoundingBox(TileBB, /*bIncludeAgentHeight*/ false));
 		It.HasPendingElements();
 		It.Advance())
 	{
 		const FNavigationOctreeElement& Element = It.GetCurrentElement();
-		const bool bShouldUse = Element.ShouldUseGeometry(OwnerNavDataConfig);
+
+		USceneComponent* SourceComponent = (USceneComponent*)Element.Data->SourceObject.Get();	// Gevaarlijke cast
+		const bool NavigationRelevant = SourceComponent->GetCollisionResponseToChannel(Channel) == ECR_Block;	// t6
+
+		const bool bShouldUse = NavigationRelevant && Element.ShouldUseGeometry(OwnerNavDataConfig);
 		if (bShouldUse)
 		{
 			bool bDumpGeometryData = false;
