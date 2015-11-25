@@ -462,6 +462,7 @@ FVector UT6VehicleComponentBase::GetLocalCOM() const{
 
 	LocalCOM += COMOffset;
 	LocalCOM.Y = 0;	// Lelijke hack om sloppyness van artists te fixen
+	LocalCOM.X = 0;
 
 	return LocalCOM;
 }
@@ -564,6 +565,8 @@ void UT6VehicleComponentBase::TickVehicle(float DeltaTime){
 	// movement updates and replication
 	if (PVehicle && UpdatedComponent){
 		FBodyInstance* BodyInstance = UpdatedPrimitive->GetBodyInstance();
+
+		//PVehicle->mWheelsSimData.getWheelData().mRadius
 
 		//UpdatedPrimitive->ComponentAngularVelocity = UpdatedComponent->ComponentAngularVelocity = BodyInstance->GetAngularVelocity();	// Onduidelijk welke van de 2 ik moet hebben
 

@@ -116,7 +116,7 @@ class ENGINE_API UT6VehicleComponentBase : public UPawnMovementComponent{
 	uint32 VehicleSetupTag;
 
 	UPROPERTY(transient)
-		TArray<UTireType*> TireTypes;
+	TArray<UTireType*> TireTypes;
 
 #if WITH_VEHICLE
 	/** Compute the forces generates from a spinning tire */

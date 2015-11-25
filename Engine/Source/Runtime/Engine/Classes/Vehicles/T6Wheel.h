@@ -84,6 +84,12 @@ class ENGINE_API UT6Wheel : public UObject{
 	UFUNCTION(BlueprintCallable, Category="Game|Components|WheeledVehicleMovement")
 	FVector GetSuspensionOffset();
 
+	UFUNCTION(BlueprintCallable, Category = "Game|Components|WheeledVehicleMovement")
+	void GetRaycastData(FVector& Start, FVector& End, FVector& Hit);
+
+	UFUNCTION(BlueprintCallable, Category = "Game|Components|WheeledVehicleMovement")
+	FTransform GetTransform();
+
 
 #if WITH_PHYSX
 

@@ -107,9 +107,33 @@ FVector UT6Wheel::GetSuspensionOffset() {
 
 	physx::PxWheelQueryResult& Wheel = VehicleManager->GetWheelsStates_AssumesLocked(VehicleSim)[WheelIndex];
 
-	FVector SuspensionDir = P2UVector(Wheel.suspLineDir);
+	//FVector SuspensionDir = P2UVector(/*Wheel.suspLineStart + */Wheel.suspLineDir * -Wheel.suspJounce);// this->GetWheelSetup().SuspensionAxis;// P2UVector(Wheel.suspLineDir);
 
 	//UE_LOG(LogVehicles, Warning, TEXT("Wheel %d axis: %s"), WheelIndex, *SuspensionDir.ToString());
 
-	return SuspensionDir * Wheel.suspJounce;
+	//return SuspensionDir;// *Wheel.suspJounce;
+
+	return this->GetWheelSetup().SuspensionAxis * -Wheel.suspJounce;
+}
+
+void UT6Wheel::GetRaycastData(FVector& Start, FVector& End, FVector& Hit){
+	FPhysXVehicleManager* VehicleManager = VehicleSim->GetWorld()->GetPhysicsScene()->GetVehicleManager();
+	SCOPED_SCENE_READ_LOCK(VehicleManager->GetScene());
+
+	physx::PxWheelQueryResult& Wheel = VehicleManager->GetWheelsStates_AssumesLocked(VehicleSim)[WheelIndex];
+
+	FVector Dir = P2UVector(Wheel.suspLineDir);
+
+	Start = P2UVector(Wheel.suspLineStart);
+	End = Start + Dir * Wheel.suspLineLength;
+	Hit = Start + Dir * -Wheel.suspJounce;
+}
+
+FTransform UT6Wheel::GetTransform(){
+	FPhysXVehicleManager* VehicleManager = VehicleSim->GetWorld()->GetPhysicsScene()->GetVehicleManager();
+	SCOPED_SCENE_READ_LOCK(VehicleManager->GetScene());
+
+	physx::PxWheelQueryResult& Wheel = VehicleManager->GetWheelsStates_AssumesLocked(VehicleSim)[WheelIndex];
+
+	return P2UTransform(Wheel.localPose);
 }
