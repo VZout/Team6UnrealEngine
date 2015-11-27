@@ -946,9 +946,12 @@ void AMatineeActor::UpdateInterpForParentMovementTracks( float Time, UInterpGrou
 			{
 				TArray<UInterpTrack*> FoundTracks;
 				ParentInst->Group->FindTracksByClass(UInterpTrackMove::StaticClass(), FoundTracks);
-				//Just use the first one, multiple move tracks wouldnt work well anyway
-				UInterpTrackMove* MoveTrack = CastChecked<UInterpTrackMove>(FoundTracks[0]);
-				MoveTrack->ConditionalUpdateTrack(Time, ParentTrackInst, true);
+
+				if (FoundTracks.Num() != 0){
+					//Just use the first one, multiple move tracks wouldnt work well anyway
+					UInterpTrackMove* MoveTrack = CastChecked<UInterpTrackMove>(FoundTracks[0]);
+					MoveTrack->ConditionalUpdateTrack(Time, ParentTrackInst, true);
+				}
 			}
 		}
 	}
