@@ -8,6 +8,7 @@
 
 #include "../PhysicsEngine/PhysXSupport.h"
 #include "../Vehicles/PhysXVehicleManager.h"
+#include "PhysicsEngine/BodyInstance.h"
 
 UT6Wheel::UT6Wheel(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer) {
 	static ConstructorHelpers::FObjectFinder<UStaticMesh> CollisionMeshObj(TEXT("/Engine/EngineMeshes/Cylinder"));
@@ -73,17 +74,45 @@ void UT6Wheel::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEven
 #endif //WITH_EDITOR
 
 UPhysicalMaterial* UT6Wheel::GetContactSurfaceMaterial() {
-	UPhysicalMaterial* PhysMaterial = NULL;
-
 	FPhysXVehicleManager* VehicleManager = VehicleSim->GetWorld()->GetPhysicsScene()->GetVehicleManager();
 	SCOPED_SCENE_READ_LOCK(VehicleManager->GetScene());
 
 	const PxMaterial* ContactSurface = VehicleManager->GetWheelsStates_AssumesLocked(VehicleSim)[WheelIndex].tireSurfaceMaterial;
-	if (ContactSurface) {
-		PhysMaterial = FPhysxUserData::Get<UPhysicalMaterial>(ContactSurface->userData);
-	}
 
-	return PhysMaterial;
+	if (ContactSurface){
+		return FPhysxUserData::Get<UPhysicalMaterial>(ContactSurface->userData);
+	}
+	else return nullptr;
+}
+
+UPrimitiveComponent* UT6Wheel::GetContactSurfaceComponent(){
+	FPhysXVehicleManager* VehicleManager = VehicleSim->GetWorld()->GetPhysicsScene()->GetVehicleManager();
+	SCOPED_SCENE_READ_LOCK(VehicleManager->GetScene());
+
+	const PxWheelQueryResult& QueryResult = VehicleManager->GetWheelsStates_AssumesLocked(VehicleSim)[WheelIndex];
+
+	//PxShape* ContactShape = VehicleManager->GetWheelsStates_AssumesLocked(VehicleSim)[WheelIndex].tireContactShape;
+
+	if (QueryResult.tireContactActor){
+		FPhysxUserData* UserData = (FPhysxUserData*)QueryResult.tireContactActor->userData;
+
+		UPrimitiveComponent* Component =  FPhysxUserData::Get<UPrimitiveComponent>(QueryResult.tireContactActor->userData);
+
+		return Component;
+	}
+	else return nullptr;
+}
+
+FBodyInstance* UT6Wheel::GetContactSurfaceBody(){
+	FPhysXVehicleManager* VehicleManager = VehicleSim->GetWorld()->GetPhysicsScene()->GetVehicleManager();
+	SCOPED_SCENE_READ_LOCK(VehicleManager->GetScene());
+
+	const PxWheelQueryResult& QueryResult = VehicleManager->GetWheelsStates_AssumesLocked(VehicleSim)[WheelIndex];
+
+	if (QueryResult.tireContactActor){
+		return FPhysxUserData::Get<FBodyInstance>(QueryResult.tireContactActor->userData);
+	}
+	else return nullptr;
 }
 
 float UT6Wheel::GetSteerAngle() {

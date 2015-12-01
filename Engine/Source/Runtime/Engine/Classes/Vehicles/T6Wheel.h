@@ -8,6 +8,8 @@
 #include "T6Wheel.generated.h"
 
 class UPhysicalMaterial;
+class UPrimitiveComponent;
+struct FBodyInstance;
 
 #if WITH_PHYSX
 namespace physx
@@ -138,4 +140,10 @@ public:
 
 	/** Get contact surface material */
 	UPhysicalMaterial* GetContactSurfaceMaterial();
+
+	// Get the contact surface component
+	UPrimitiveComponent* GetContactSurfaceComponent();
+
+	// Get the contact surface body
+	FBodyInstance* GetContactSurfaceBody();
 };
