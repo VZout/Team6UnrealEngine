@@ -10,8 +10,10 @@ TODO: Put description here
 //#include "Vehicles/T6NavNodeComponent.h"
 
 
-
-
+AT6MatineeActor::AT6MatineeActor(){
+	bRewindOnPlay = true;
+	bRewindIfAlreadyPlaying = true;
+}
 
 void AT6MatineeActor::NotifyEventTriggered(FName EventName, float EventTime, bool bUseCustomEventName) {
 	Super::NotifyEventTriggered(EventName, EventTime, bUseCustomEventName);

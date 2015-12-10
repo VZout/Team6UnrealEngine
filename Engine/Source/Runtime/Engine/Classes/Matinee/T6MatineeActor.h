@@ -14,6 +14,8 @@ class AT6MatineeActor : public AMatineeActor{
 public:
 	FOnMatineeEvent Delegate;
 
+	AT6MatineeActor();
+
 	virtual void NotifyEventTriggered(FName EventName, float EventTime, bool bUseCustomEventName = false) override;
 };
 
