@@ -58,8 +58,8 @@ public:
 #include "LevelStreaming.generated.h"
 
 // Delegate signatures
-DECLARE_DYNAMIC_MULTICAST_DELEGATE( FLevelStreamingLoadedStatus );
-DECLARE_DYNAMIC_MULTICAST_DELEGATE( FLevelStreamingVisibilityStatus );
+DECLARE_DYNAMIC_MULTICAST_DELEGATE( FLevelStreamingLoadedStatus);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam( FLevelStreamingVisibilityStatus, ULevelStreaming*, LevelStreaming);
 
 /**
  * Abstract base class of container object encapsulating data required for streaming and providing 
