@@ -743,11 +743,11 @@ void ULevelStreaming::BroadcastLevelVisibleStatus(UWorld* PersistentWorld, FName
 		{
 			if (bVisible)
 			{
-				(*It)->OnLevelShown.Broadcast();
+				(*It)->OnLevelShown.Broadcast(*It);
 			}
 			else
 			{
-				(*It)->OnLevelHidden.Broadcast();
+				(*It)->OnLevelHidden.Broadcast(*It);
 			}
 		}
 	}
