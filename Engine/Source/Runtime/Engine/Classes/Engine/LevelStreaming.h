@@ -58,7 +58,7 @@ public:
 #include "LevelStreaming.generated.h"
 
 // Delegate signatures
-DECLARE_DYNAMIC_MULTICAST_DELEGATE( FLevelStreamingLoadedStatus);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam( FLevelStreamingLoadedStatus, ULevelStreaming*, LevelStreaming);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam( FLevelStreamingVisibilityStatus, ULevelStreaming*, LevelStreaming);
 
 /**
