@@ -488,11 +488,13 @@ bool CreateCollisionFromBone( UBodySetup* bs, USkeletalMesh* skelMesh, int32 Bon
 			const FSkelMeshChunk& Chunk = LODModel.Chunks[ChunkIndex];
 			if ( bSoftVertex )
 			{
-				// We dont want to support soft verts, only rigid
+				continue;
+				
+				/* // We dont want to support soft verts, only rigid
 				FMessageLog EditorErrors("EditorErrors");
 				EditorErrors.Warning(NSLOCTEXT("PhysicsAssetUtils", "MultiConvexSoft", "Unable to create physics asset with a multi convex hull due to the presence of soft vertices."));
 				EditorErrors.Open();
-				return false;
+				return false;*/
 			}
 
 			// Using the same code in GetSkinnedVertexPosition
