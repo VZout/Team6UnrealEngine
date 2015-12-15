@@ -1573,7 +1573,7 @@ struct ENGINE_API FHitResult
 	 */
 	UPROPERTY()
 	float Time;
-	 
+	
 	/** The distance from the TraceStart to the ImpactPoint in world space. This value is 0 if there was an initial overlap (trace started inside another colliding object). */
 	UPROPERTY()
 	float Distance; 
@@ -2065,63 +2065,461 @@ namespace EMeshFeatureImportance
 	};
 }
 
+//@third party code - BEGIN SIMPLYGON
+//TODO : Move code to use new convention to defining enums.
+#define SG_ENABLE_DEPRECATED_MASSIVELOD 0
+#define SG_ENABLE_DEPRECATED_MASSIVELOD_MEMBERS 1
+UENUM()
+namespace ESimplygonLODType
+{
+	enum Type
+	{
+		Reduction,
+		Remeshing
+	};
+}
 
-/** Settings used to reduce a mesh. */
+/* 
+*	Material LOD Type
+*/
+UENUM()
+namespace EMaterialLODType
+{
+	enum Type
+	{
+		Off,				//no material lod
+		BakeTexture,		//combine materials and cast new textures
+		BakeVertexColor,	//combine materials and cast textures into vertex color field instead of baking new textures
+		Replace
+	};
+}
+
+/* 
+*	Texture Stretch 
+*/
+UENUM()
+namespace ESimplygonTextureStrech
+{
+	enum Type
+	{
+		None,
+		VerySmall,
+		Small,
+		Medium,
+		Large,
+		VeryLarge
+	};
+}
+
+/* 
+*	Type of caster to use Stretch 
+*/
+UENUM()
+namespace ESimplygonCasterType
+{
+	enum Type
+	{
+		None,
+		Color,				//use Color caster
+		Normals,			//use Normals caster
+		Opacity,			//use Opacity caster
+	};
+}
+
+/* 
+*	Texture Sampling Quality
+*/
+UENUM()
+namespace ESimplygonTextureSamplingQuality
+{
+	enum Type
+	{
+		Poor,
+		Low,
+		Medium,
+		High
+	};
+}
+
+UENUM()
+namespace ESimplygonColorChannels
+{
+	enum Type
+	{
+		RGBA,
+		RGB,
+		L
+	};
+}
+
+
+UENUM()
+namespace ESimplygonTextureResolution
+{
+	enum Type
+	{
+		TextureResolution_64 UMETA( DisplayName="64" ),
+		TextureResolution_128 UMETA( DisplayName="128" ),
+		TextureResolution_256 UMETA( DisplayName="256" ),
+		TextureResolution_512 UMETA( DisplayName="512" ),
+		TextureResolution_1024 UMETA( DisplayName="1024" ),
+		TextureResolution_2048 UMETA( DisplayName="2048" ),
+		TextureResolution_4096 UMETA( DisplayName="4096" ),
+		TextureResolution_8192 UMETA( DisplayName="8192" )
+	};
+}
+
+UENUM()
+namespace ESimplygonMaterialChannel
+{
+	enum Type
+	{
+		SG_MATERIAL_CHANNEL_AMBIENT UMETA( DisplayName = "Ambient", DisplayValue="Ambient" ),
+		SG_MATERIAL_CHANNEL_DIFFUSE UMETA( DisplayName = "Diffuse", DisplayValue="Diffuse" ),
+		SG_MATERIAL_CHANNEL_SPECULAR UMETA( DisplayName = "Specular", DisplayValue="Specular"),
+		SG_MATERIAL_CHANNEL_OPACITY UMETA( DisplayName = "Opacity", DisplayValue="Opacity"),
+		SG_MATERIAL_CHANNEL_EMISSIVE UMETA( DisplayName = "Emissive", DisplayValue="Emissive"),
+		SG_MATERIAL_CHANNEL_NORMALS UMETA( DisplayName = "Normals", DisplayValue="Normals"),
+		SG_MATERIAL_CHANNEL_DISPLACEMENT UMETA( DisplayName = "Displacement", DisplayValue="Displacement"),
+		SG_MATERIAL_CHANNEL_BASECOLOR UMETA( DisplayName = "Basecolor", DisplayValue="Basecolor"),
+		SG_MATERIAL_CHANNEL_ROUGHNESS UMETA( DisplayName = "Roughness", DisplayValue="Roughness"),
+		SG_MATERIAL_CHANNEL_METALLIC UMETA( DisplayName = "Metallic", DisplayValue="Metallic"),
+		SG_MATERIAL_CHANNEL_AO UMETA( DisplayName = "AmbientOcclusion", DisplayValue="AmbientOcclusion")
+	};
+	
+}
+
+/*
+* Desc : The following class stores settings for the simplygon caster.
+*/
+USTRUCT()
+struct  FSimplygonChannelCastingSettings
+{
+	GENERATED_USTRUCT_BODY()
+
+		UPROPERTY(EditAnywhere, Category=SimplygonChannelCasterSettings)
+		TEnumAsByte<ESimplygonMaterialChannel::Type> MaterialChannel;
+
+	UPROPERTY(EditAnywhere, Category=SimplygonChannelCasterSettings)
+		TEnumAsByte<ESimplygonCasterType::Type> Caster;
+
+	UPROPERTY(EditAnywhere, Category=SimplygonChannelCasterSettings)
+		bool bActive;
+
+	UPROPERTY(EditAnywhere, Category=SimplygonChannelCasterSettings)
+		TEnumAsByte<ESimplygonColorChannels::Type> ColorChannels;
+
+	UPROPERTY(EditAnywhere, Category=SimplygonChannelCasterSettings)
+		int32 BitsPerChannel;
+
+	UPROPERTY(EditAnywhere, Category=SimplygonMaterialLODSettings)
+		bool bUseSRGB;
+
+	UPROPERTY(EditAnywhere, Category=SimplygonMaterialLODSettings)
+		bool bBakeVertexColors;
+
+	UPROPERTY(EditAnywhere, Category=SimplygonMaterialLODSettings)
+		bool bFlipBackfacingNormals;
+
+	UPROPERTY(EditAnywhere, Category=SimplygonMaterialLODSettings)
+	bool bUseTangentSpaceNormals;
+
+	UPROPERTY(EditAnywhere, Category = SimplygonMaterialLODSettings)
+	bool bFlipGreenChannel;
+
+	FSimplygonChannelCastingSettings(ESimplygonMaterialChannel::Type channel, ESimplygonCasterType::Type caster, ESimplygonColorChannels::Type colorChannels)
+		: MaterialChannel(channel) 
+		, Caster(caster)
+		, bActive(false) 
+		, ColorChannels(colorChannels)
+		, BitsPerChannel(8)
+		, bUseSRGB(true)
+		, bBakeVertexColors(false)
+		, bFlipBackfacingNormals(false)
+		, bUseTangentSpaceNormals(true)
+		, bFlipGreenChannel(false)
+	{
+	}
+
+	FSimplygonChannelCastingSettings()
+		: MaterialChannel(ESimplygonMaterialChannel::SG_MATERIAL_CHANNEL_BASECOLOR) 
+		, Caster(ESimplygonCasterType::Color)
+		, bActive(false) 
+		, ColorChannels(ESimplygonColorChannels::RGB)
+		, BitsPerChannel(8)
+		, bUseSRGB(true)
+		, bBakeVertexColors(false)
+		, bFlipBackfacingNormals(false)
+		, bUseTangentSpaceNormals(true)
+		, bFlipGreenChannel(false)
+	{
+	}
+
+	FSimplygonChannelCastingSettings(const FSimplygonChannelCastingSettings& Other)
+		: MaterialChannel(Other.MaterialChannel) 
+		, Caster(Other.Caster)
+		, bActive(Other.bActive) 
+		, ColorChannels(Other.ColorChannels)
+		, BitsPerChannel(Other.BitsPerChannel)
+		, bUseSRGB(Other.bUseSRGB)
+		, bBakeVertexColors(Other.bBakeVertexColors)
+		, bFlipBackfacingNormals(Other.bFlipBackfacingNormals)
+		, bUseTangentSpaceNormals(Other.bUseTangentSpaceNormals)
+		, bFlipGreenChannel(Other.bFlipGreenChannel)
+	{
+	}
+
+	bool operator==(const FSimplygonChannelCastingSettings& Other) const
+	{
+		if (bActive == false && Other.bActive == false)
+		{
+			// Ignore other fields when both objects are inactive
+			return true;
+		}
+
+		return MaterialChannel == Other.MaterialChannel 
+			&& Caster == Other.Caster
+			&& bActive == Other.bActive
+			&& ColorChannels == Other.ColorChannels
+			&& BitsPerChannel == Other.BitsPerChannel
+			&& bUseSRGB == Other.bUseSRGB
+			&& bBakeVertexColors == Other.bBakeVertexColors
+			&& bFlipBackfacingNormals == Other.bFlipBackfacingNormals
+			&& bUseTangentSpaceNormals== Other.bUseTangentSpaceNormals
+			&& bFlipGreenChannel == Other.bFlipGreenChannel;
+	}
+
+	bool operator!=(const FSimplygonChannelCastingSettings& Other) const
+	{
+		return !(*this == Other);
+	}
+
+};
+
+/*
+* Desc : The following class stores settings for the simplygon material LOD. Specifically the mapping image
+*/
+USTRUCT()
+struct ENGINE_API FSimplygonMaterialLODSettings
+{
+	GENERATED_USTRUCT_BODY()
+		UPROPERTY(EditAnywhere, Category=SimplygonMaterialLODSettings)
+		bool bActive;
+
+	UPROPERTY(EditAnywhere, Category=SimplygonMaterialLODSettings)
+		TEnumAsByte<EMaterialLODType::Type> MaterialLODType;
+
+	UPROPERTY(EditAnywhere, Category=SimplygonMaterialLODSettings)
+		bool bUseAutomaticSizes;
+
+	UPROPERTY(EditAnywhere, Category=SimplygonMaterialLODSettings)
+		TEnumAsByte<ESimplygonTextureResolution::Type> TextureWidth; 
+
+	UPROPERTY(EditAnywhere, Category=SimplygonMaterialLODSettings)
+		TEnumAsByte<ESimplygonTextureResolution::Type> TextureHeight;
+
+	UPROPERTY(EditAnywhere, Category=SimplygonMaterialLODSettings)
+		TEnumAsByte<ESimplygonTextureSamplingQuality::Type> SamplingQuality;
+
+	UPROPERTY(EditAnywhere, Category=SimplygonMaterialLODSettings)
+		int32 GutterSpace;
+
+	UPROPERTY(EditAnywhere, Category=SimplygonMaterialLODSettings)
+	TEnumAsByte<ESimplygonTextureStrech::Type> TextureStrech;
+
+	UPROPERTY(EditAnywhere, Category=SimplygonMaterialLODSettings)
+		bool bReuseExistingCharts;
+
+	UPROPERTY()
+		TArray<struct FSimplygonChannelCastingSettings> ChannelsToCast;
+
+	// Note: this option is used only in GenerateMassiveLODMesh
+	UPROPERTY(EditAnywhere, Category=SimplygonMaterialLODSettings)
+		bool bBakeVertexData;
+
+	// Note: this option is used only in GenerateMassiveLODMesh
+	UPROPERTY(EditAnywhere, Category=SimplygonMaterialLODSettings)
+		bool bBakeActorData;
+
+	UPROPERTY(EditAnywhere, Category=SimplygonMaterialLODSettings)
+		bool bAllowMultiMaterial;
+
+	UPROPERTY(EditAnywhere, Category=SimplygonMaterialLODSettings)
+		bool bPreferTwoSideMaterials;
+
+	FSimplygonMaterialLODSettings();
+
+	FSimplygonMaterialLODSettings(const FSimplygonMaterialLODSettings& Other);
+
+	static int32 GetTextureResolutionFromEnum(ESimplygonTextureResolution::Type InResolution)
+	{
+		switch(InResolution)
+		{
+		case ESimplygonTextureResolution::TextureResolution_64:
+			return 64;
+		case ESimplygonTextureResolution::TextureResolution_128:
+			return 128;
+		case ESimplygonTextureResolution::TextureResolution_256:
+			return 256;
+		case ESimplygonTextureResolution::TextureResolution_512:
+			return 512;
+		case ESimplygonTextureResolution::TextureResolution_1024:
+			return 1024;
+		case ESimplygonTextureResolution::TextureResolution_2048:
+			return 2048;
+		case ESimplygonTextureResolution::TextureResolution_4096:
+			return 4096;
+		case ESimplygonTextureResolution::TextureResolution_8192:
+			return 8192;
+
+		}
+		return 64;
+	}
+
+	bool operator==(const FSimplygonMaterialLODSettings& Other) const;
+
+	bool operator!=(const FSimplygonMaterialLODSettings& Other) const
+	{
+		return !(*this == Other);
+	}
+};
+//@third party code - END SIMPLYGON
+
+/**
+ * Settings used to reduce a mesh.
+ */
 USTRUCT()
 struct FMeshReductionSettings
 {
 	GENERATED_USTRUCT_BODY()
 
-		/** Percentage of triangles to keep. 1.0 = no reduction, 0.0 = no triangles. */
+	/** Percentage of triangles to keep. 1.0 = no reduction, 0.0 = no triangles. */
 	UPROPERTY(EditAnywhere, Category=ReductionSettings)
-		float PercentTriangles;
+	float PercentTriangles;
 
 	/** The maximum distance in object space by which the reduced mesh may deviate from the original mesh. */
 	UPROPERTY(EditAnywhere, Category=ReductionSettings)
-		float MaxDeviation;
+	float MaxDeviation;
 
 	/** Threshold in object space at which vertices are welded together. */
 	UPROPERTY(EditAnywhere, Category=ReductionSettings)
-		float WeldingThreshold;
+	float WeldingThreshold;
 
 	/** Angle at which a hard edge is introduced between faces. */
 	UPROPERTY(EditAnywhere, Category=ReductionSettings)
-		float HardAngleThreshold;
+	float HardAngleThreshold;
 
 	/** Higher values minimize change to border edges. */
 	UPROPERTY(EditAnywhere, Category=ReductionSettings)
-		TEnumAsByte<EMeshFeatureImportance::Type> SilhouetteImportance;
+	TEnumAsByte<EMeshFeatureImportance::Type> SilhouetteImportance;
 
 	/** Higher values reduce texture stretching. */
 	UPROPERTY(EditAnywhere, Category=ReductionSettings)
-		TEnumAsByte<EMeshFeatureImportance::Type> TextureImportance;
+	TEnumAsByte<EMeshFeatureImportance::Type> TextureImportance;
 
 	/** Higher values try to preserve normals better. */
 	UPROPERTY(EditAnywhere, Category=ReductionSettings)
-		TEnumAsByte<EMeshFeatureImportance::Type> ShadingImportance;
+	TEnumAsByte<EMeshFeatureImportance::Type> ShadingImportance;
+
+	//@third party code - BEGIN SIMPLYGON
 
 	UPROPERTY(EditAnywhere, Category=ReductionSettings)
-		bool bRecalculateNormals;
+	bool bActive;
 
 	UPROPERTY(EditAnywhere, Category=ReductionSettings)
-		int32 BaseLODModel;
+	bool bRecalculateNormals;
+
+	UPROPERTY(EditAnywhere, Category=ReductionSettings)
+	int32 BaseLODModel;
+
+	UPROPERTY(EditAnywhere, Category=ReductionSettings)
+	bool bGenerateUniqueLightmapUVs;
+
+	UPROPERTY(EditAnywhere, Category=ReductionSettings)
+	bool bKeepSymmetry;
+	
+	UPROPERTY(EditAnywhere, Category=ReductionSettings)
+	bool bVisibilityAided;
+
+	UPROPERTY(EditAnywhere, Category=ReductionSettings)
+	bool bCullOccluded;
+
+	/** Higher values generates fewer samples*/
+	UPROPERTY(EditAnywhere, Category=ReductionSettings)
+	TEnumAsByte<EMeshFeatureImportance::Type> VisibilityAggressiveness;
+
+	/* The following will store material lod setting.*/
+	UPROPERTY(EditAnywhere, Category=ReductionSettings)
+	FSimplygonMaterialLODSettings MaterialLODSettings;
+
+	/** Higher values minimize change to vertex color data. */
+	UPROPERTY(EditAnywhere, Category = ReductionSettings)
+	TEnumAsByte<EMeshFeatureImportance::Type> VertexColorImportance;
+
+	/** This is transient property used to pass "force build" option from UI to UStaticMesh builder */
+	UPROPERTY(Transient)
+	bool bForceRebuild;
+	//@third party code - END SIMPLYGON
 
 	/** Default settings. */
 	FMeshReductionSettings()
 		: PercentTriangles(1.0f)
 		, MaxDeviation(0.0f)
 		, WeldingThreshold(0.0f)
-		, HardAngleThreshold(45.0f)
+		, HardAngleThreshold(80.0f)
 		, SilhouetteImportance(EMeshFeatureImportance::Normal)
 		, TextureImportance(EMeshFeatureImportance::Normal)
 		, ShadingImportance(EMeshFeatureImportance::Normal)
+		//@third party code - BEGIN SIMPLYGON
+		, bActive(true)
 		, bRecalculateNormals(false)
 		, BaseLODModel(0)
-	{ }
+		, bGenerateUniqueLightmapUVs(false)
+		, bKeepSymmetry(false)
+		, bVisibilityAided(false)
+		, bCullOccluded(false)
+		, VisibilityAggressiveness(EMeshFeatureImportance::Lowest)
+		, MaterialLODSettings()
+		, VertexColorImportance(EMeshFeatureImportance::Off)
+		, bForceRebuild(false)
+		//@third party code - END SIMPLYGON
+	{
+	}
+
+	//@third party code - BEGIN SIMPLYGON
+	FMeshReductionSettings(const FMeshReductionSettings& Other)
+		: PercentTriangles(Other.PercentTriangles)
+		, MaxDeviation(Other.MaxDeviation)
+		, WeldingThreshold(Other.WeldingThreshold)
+		, HardAngleThreshold(Other.HardAngleThreshold)
+		, SilhouetteImportance(Other.SilhouetteImportance)
+		, TextureImportance(Other.TextureImportance)
+		, ShadingImportance(Other.ShadingImportance)
+		, bActive(Other.bActive)
+		, bRecalculateNormals(Other.bRecalculateNormals)
+		, BaseLODModel(Other.BaseLODModel)
+		, bGenerateUniqueLightmapUVs(Other.bGenerateUniqueLightmapUVs)
+		, bKeepSymmetry(Other.bKeepSymmetry)
+		, bVisibilityAided(Other.bVisibilityAided)
+		, bCullOccluded(Other.bCullOccluded)
+		, VisibilityAggressiveness(Other.VisibilityAggressiveness)
+		, MaterialLODSettings(Other.MaterialLODSettings)
+		, VertexColorImportance(Other.VertexColorImportance)
+		, bForceRebuild(Other.bForceRebuild)
+	{
+	}
+	//@third party code - END SIMPLYGON
 
 	/** Equality operator. */
 	bool operator==(const FMeshReductionSettings& Other) const
 	{
+		//@third party code - BEGIN SIMPLYGON
+		if (bActive == false && Other.bActive == false)
+		{
+			// Ignore other fields when both objects are inactive
+			return true;
+		}
+		//@third party code - END SIMPLYGON
 		return PercentTriangles == Other.PercentTriangles
 			&& MaxDeviation == Other.MaxDeviation
 			&& WeldingThreshold == Other.WeldingThreshold
@@ -2129,8 +2527,18 @@ struct FMeshReductionSettings
 			&& SilhouetteImportance == Other.SilhouetteImportance
 			&& TextureImportance == Other.TextureImportance
 			&& ShadingImportance == Other.ShadingImportance
+			//@third party code - BEGIN SIMPLYGON
+			&& bActive == Other.bActive
 			&& bRecalculateNormals == Other.bRecalculateNormals
-			&& BaseLODModel == Other.BaseLODModel;
+			&& BaseLODModel == Other.BaseLODModel
+			&& bGenerateUniqueLightmapUVs == Other.bGenerateUniqueLightmapUVs
+			&& bKeepSymmetry == Other.bKeepSymmetry
+			&& bVisibilityAided == Other.bVisibilityAided
+			&& bCullOccluded == Other.bCullOccluded
+			&& VisibilityAggressiveness == Other.VisibilityAggressiveness
+			&& MaterialLODSettings == Other.MaterialLODSettings
+			&& VertexColorImportance == Other.VertexColorImportance;
+			//@third party code - END SIMPLYGON
 	}
 
 	/** Inequality. */
@@ -3662,4 +4070,94 @@ enum class ESpawnActorCollisionHandlingMethod : uint8
 	AdjustIfPossibleButDontSpawnIfColliding	UMETA(DisplayName = "Try To Adjust Location, Don't Spawn If Still Colliding"),
 	/** Actor will fail to spawn. */
 	DontSpawnIfColliding					UMETA(DisplayName = "Do Not Spawn"),
+};
+
+//@third party code - BEGIN SIMPLYGON
+/**
+ * Settings used to ProxyLOD mesh(es).
+ */
+USTRUCT()
+struct FSimplygonRemeshingSettings
+{
+	GENERATED_USTRUCT_BODY()
+
+	UPROPERTY(EditAnywhere, Category=SimplygonRemeshingSettings)
+	bool bActive;
+
+	/** Screen size of the resulting proxy mesh in pixel size*/
+	UPROPERTY(EditAnywhere, Category=SimplygonRemeshingSettings)
+	int32 ScreenSize;
+
+	/** Should Simplygon recalculate normals for the proxy mesh? */
+	UPROPERTY(EditAnywhere, Category=SimplygonRemeshingSettings)
+	bool bRecalculateNormals;
+
+	/** Angle at which a hard edge is introduced between faces. */
+	UPROPERTY(EditAnywhere, Category=SimplygonRemeshingSettings)
+	float HardAngleThreshold;
+
+	UPROPERTY(EditAnywhere, Category=SimplygonRemeshingSettings)
+	int32 MergeDistance;
+
+	UPROPERTY(EditAnywhere, Category=SimplygonRemeshingSettings)
+	bool bUseClippingPlane;
+
+	UPROPERTY(EditAnywhere, Category=SimplygonRemeshingSettings)
+	float ClippingLevel;
+
+	UPROPERTY(EditAnywhere, Category=SimplygonRemeshingSettings)
+	int32 AxisIndex;
+
+	UPROPERTY(EditAnywhere, Category=SimplygonRemeshingSettings)
+	bool bPlaneNegativeHalfspace;
+	
+	UPROPERTY(EditAnywhere, Category=SimplygonRemeshingSettings)
+	bool bUseMassiveLOD;
+
+	UPROPERTY(EditAnywhere, Category=SimplygonRemeshingSettings)
+	bool bUseAggregateLOD;
+
+	UPROPERTY(EditAnywhere, Category=SimplygonRemeshingSettings)
+	FSimplygonMaterialLODSettings MaterialLODSettings;
+	
+	/** Default settings. */
+	FSimplygonRemeshingSettings()
+		: bActive(false)
+		, ScreenSize(300)
+		, bRecalculateNormals(true)
+		, HardAngleThreshold(45.0f)
+		, MergeDistance(4)
+		, bUseClippingPlane(false)
+		, ClippingLevel(0.0)
+		, AxisIndex(0)
+		, bPlaneNegativeHalfspace(false)
+		, bUseMassiveLOD(true)
+		, bUseAggregateLOD(false)
+		, MaterialLODSettings()
+	{
+	}
+
+	/** Equality operator. */
+	bool operator==(const FSimplygonRemeshingSettings& Other) const
+	{
+		if (bActive == false && Other.bActive == false)
+		{
+			// Ignore other fields when both objects are inactive
+			return true;
+		}
+		return bActive == Other.bActive
+			&& ScreenSize == Other.ScreenSize
+			&& bRecalculateNormals == Other.bRecalculateNormals
+			&& HardAngleThreshold == Other.HardAngleThreshold
+			&& MergeDistance == Other.MergeDistance
+			&& bUseMassiveLOD == Other.bUseMassiveLOD
+			&& bUseAggregateLOD == Other.bUseAggregateLOD
+			&& MaterialLODSettings == Other.MaterialLODSettings;
+	}
+
+	/** Inequality. */
+	bool operator!=(const FSimplygonRemeshingSettings& Other) const
+	{
+		return !(*this == Other);
+	}
 };

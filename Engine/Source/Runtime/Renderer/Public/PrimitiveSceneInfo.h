@@ -158,6 +158,12 @@ typedef TOctree<FPrimitiveSceneInfoCompact,struct FPrimitiveOctreeSemantics> FSc
 class FPrimitiveSceneInfo : public FDeferredCleanupInterface
 {
 public:
+	//@third party code BEGIN SIMPLYGON
+#if SG_ENABLE_DEPRECATED_MASSIVELOD_MEMBERS
+	UPrimitiveComponent* ReplacementPrimitive;
+	float MassiveLODSizeOnScreen;
+#endif
+	//@third party code END SIMPLYGON
 
 	/** The render proxy for the primitive. */
 	FPrimitiveSceneProxy* Proxy;

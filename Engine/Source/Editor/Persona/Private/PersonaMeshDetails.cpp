@@ -22,7 +22,12 @@
 #include "AnimGraphNodeDetails.h"
 #include "STextComboBox.h"
 
+//@third party code BEGIN SIMPLYGON 
+#include "Developer/SimplygonUtilities/Public/SimplygonUtilities.h"
+//@third party code END SIMPLYGON
+
 #define LOCTEXT_NAMESPACE "PersonaMeshDetails"
+
 
 /** Returns true if automatic mesh reduction is available. */
 static bool IsAutoMeshReductionAvailable()
@@ -67,6 +72,20 @@ static void FillEnumOptions(TArray<TSharedPtr<FString> >& OutStrings, UEnum& InE
 	}
 }
 
+//@third party code BEGIN SIMPLYGON 
+static UEnum& GetLODTypeEnum()
+{
+	static FName LODTypeName(TEXT("ESimplygonLODType::Reduction"));
+	static UEnum* LODTypeEnum = NULL;
+	if (LODTypeEnum == NULL)
+	{
+		UEnum::LookupEnumName(LODTypeName, &LODTypeEnum);
+		check(LODTypeEnum);
+	}
+	return *LODTypeEnum;
+
+}  
+//@third party code END SIMPLYGON
 
 FSkelMeshReductionSettingsLayout::FSkelMeshReductionSettingsLayout(int32 InLODIndex, TSharedRef<FPersonaMeshDetails> InParentLODSettings, TSharedPtr<IPropertyHandle> InBoneToRemoveProperty)
 : LODIndex(InLODIndex)
@@ -75,6 +94,13 @@ FSkelMeshReductionSettingsLayout::FSkelMeshReductionSettingsLayout(int32 InLODIn
 {
 	FillEnumOptions(SimplificationOptions, GetFeatureSimpificationEnum());
 	FillEnumOptions(ImportanceOptions, GetFeatureImportanceEnum());
+	//@third party code BEGIN SIMPLYGON
+	ISimplygonUtilities& SimplygonUtilities = FModuleManager::Get().LoadModuleChecked<ISimplygonUtilities>("SimplygonUtilities");
+	MaterialLODSettingsWidget = MakeShareable( SimplygonUtilities.CreateMaterialLODSettingsLayout(LODIndex, true) );
+	FillEnumOptions(LODTypeOptions, GetLODTypeEnum());
+	UpdateBaseLODModelOptions(); 
+	bForceBuild = false;
+	//@third party code END SIMPLYGON
 }
 
 FSkelMeshReductionSettingsLayout::~FSkelMeshReductionSettingsLayout()
@@ -89,14 +115,53 @@ void FSkelMeshReductionSettingsLayout::GenerateHeaderRowContent(FDetailWidgetRow
 			.Text(LOCTEXT("MeshReductionSettings", "Reduction Settings"))
 			.Font(IDetailLayoutBuilder::GetDetailFont())
 		];
+	//@third party code BEGIN SIMPLYGON 
+	NodeRow.ValueContent()
+		[
+			SAssignNew(LODTypeCombo, STextComboBox)
+			//.Font( IDetailLayoutBuilder::GetDetailFont() )
+			.ContentPadding(0)
+			.OptionsSource(&LODTypeOptions)
+			.InitiallySelectedItem(!RemeshingSettings.bActive ? LODTypeOptions[0] : LODTypeOptions[1])
+			.OnSelectionChanged(this, &FSkelMeshReductionSettingsLayout::OnLODTypeChanged)
+		];  
+	//@third party code END SIMPLYGON
 }
 
 
 BEGIN_SLATE_FUNCTION_BUILD_OPTIMIZATION
 void FSkelMeshReductionSettingsLayout::GenerateChildContent(IDetailChildrenBuilder& ChildrenBuilder)
 {
+	//@third party code BEGIN SIMPLYGON
+	TAttribute<EVisibility> ReductionSettingVisibility( this, &FSkelMeshReductionSettingsLayout::IsReductionSetting);
+	TAttribute<EVisibility> RemeshingSettingVisibility( this, &FSkelMeshReductionSettingsLayout::IsRemeshingSetting);
+	//@third party code END SIMPLYGON
+
 	{
+		//@third party code BEGIN SIMPLYGON
+		ChildrenBuilder.AddChildContent( LOCTEXT("BaseLODMesh", "Generate LOD From") )
+			.Visibility(ReductionSettingVisibility)
+			.NameContent()
+			[
+				SNew( STextBlock )
+				.Font( IDetailLayoutBuilder::GetDetailFont() )
+				.Text( LOCTEXT("BaseLODMesh", "Generate LOD From") )
+			]
+		.ValueContent()
+		[
+			SAssignNew(BaseLODModelCombo, STextComboBox)
+			//.Font( IDetailLayoutBuilder::GetDetailFont() )
+			.ContentPadding(0)
+			.OptionsSource(&BaseLODModelOptions)
+			.InitiallySelectedItem(BaseLODModelOptions[ReductionSettings.BaseLODModel])
+			.OnSelectionChanged(this, &FSkelMeshReductionSettingsLayout::OnBaseLODModelChanged)
+		];
+		//@third party code END SIMPLYGON
+
 		ChildrenBuilder.AddChildContent(LOCTEXT("PercentTriangles", "Percent Triangles"))
+			//@third party code BEGIN SIMPLYGON
+			.Visibility(ReductionSettingVisibility)
+			//@third party code END SIMPLYGON
 			.NameContent()
 			[
 				SNew(STextBlock)
@@ -115,8 +180,13 @@ void FSkelMeshReductionSettingsLayout::GenerateChildContent(IDetailChildrenBuild
 
 	}
 
+	SetupRemeshingSettings(ChildrenBuilder, RemeshingSettingVisibility);
+
 	{
 		ChildrenBuilder.AddChildContent(LOCTEXT("MaxDeviation", "Max Deviation"))
+			//@third party code BEGIN SIMPLYGON
+			.Visibility(ReductionSettingVisibility)
+			//@third party code END SIMPLYGON
 			.NameContent()
 			[
 				SNew(STextBlock)
@@ -137,6 +207,9 @@ void FSkelMeshReductionSettingsLayout::GenerateChildContent(IDetailChildrenBuild
 
 	{
 		ChildrenBuilder.AddChildContent(LOCTEXT("Silhouette_MeshSimplification", "Silhouette"))
+			//@third party code BEGIN SIMPLYGON
+			.Visibility(ReductionSettingVisibility)
+			//@third party code END SIMPLYGON
 			.NameContent()
 			[
 				SNew(STextBlock)
@@ -157,6 +230,9 @@ void FSkelMeshReductionSettingsLayout::GenerateChildContent(IDetailChildrenBuild
 
 	{
 		ChildrenBuilder.AddChildContent(LOCTEXT("Texture_MeshSimplification", "Texture"))
+			//@third party code BEGIN SIMPLYGON
+			.Visibility(ReductionSettingVisibility)
+			//@third party code END SIMPLYGON
 			.NameContent()
 			[
 				SNew(STextBlock)
@@ -177,6 +253,9 @@ void FSkelMeshReductionSettingsLayout::GenerateChildContent(IDetailChildrenBuild
 
 	{
 		ChildrenBuilder.AddChildContent(LOCTEXT("Shading_MeshSimplification", "Shading"))
+			//@third party code BEGIN SIMPLYGON
+			.Visibility(ReductionSettingVisibility)
+			//@third party code END SIMPLYGON
 			.NameContent()
 			[
 				SNew(STextBlock)
@@ -197,6 +276,9 @@ void FSkelMeshReductionSettingsLayout::GenerateChildContent(IDetailChildrenBuild
 
 	{
 		ChildrenBuilder.AddChildContent(LOCTEXT("Skinning_MeshSimplification", "Skinning"))
+			//@third party code BEGIN SIMPLYGON
+			.Visibility(ReductionSettingVisibility)
+			//@third party code END SIMPLYGON
 			.NameContent()
 			[
 				SNew(STextBlock)
@@ -217,6 +299,9 @@ void FSkelMeshReductionSettingsLayout::GenerateChildContent(IDetailChildrenBuild
 
 	{
 		ChildrenBuilder.AddChildContent(LOCTEXT("WeldingThreshold", "Welding Threshold"))
+			//@third party code BEGIN SIMPLYGON
+			.Visibility(ReductionSettingVisibility)
+			//@third party code END SIMPLYGON
 			.NameContent()
 			[
 				SNew(STextBlock)
@@ -279,8 +364,33 @@ void FSkelMeshReductionSettingsLayout::GenerateChildContent(IDetailChildrenBuild
 		}
 	}
 
+	//@third party code BEGIN SIMPLYGON
+	{
+		ChildrenBuilder.AddChildContent(LOCTEXT("BoneReductionRatio", "% of Bones"))
+			.Visibility(ReductionSettingVisibility)
+			.NameContent()
+			[
+				SNew(STextBlock)
+				.Font(IDetailLayoutBuilder::GetDetailFont())
+				.Text(LOCTEXT("BoneReductionRatio", "% Of Bones"))
+			]
+		.ValueContent()
+			[
+				SNew(SSpinBox<float>)
+				.Font(IDetailLayoutBuilder::GetDetailFont())
+				.MinValue(1.0f)
+				.MaxValue(100.0f)
+				.Value(this, &FSkelMeshReductionSettingsLayout::GetBoneReductionRatio)
+				.OnValueChanged(this, &FSkelMeshReductionSettingsLayout::OnBoneReductionRatioChanged)
+			];
+	}
+	//@third party code END SIMPLYGON
+
 	{
 		ChildrenBuilder.AddChildContent(LOCTEXT("MaxBonesPerVertex", "Max Bones Per Vertex"))
+			//@third party code BEGIN SIMPLYGON
+			.Visibility(ReductionSettingVisibility)
+			//@third party code END SIMPLYGON
 			.NameContent()
 			[
 				SNew(STextBlock)
@@ -299,8 +409,43 @@ void FSkelMeshReductionSettingsLayout::GenerateChildContent(IDetailChildrenBuild
 
 	}
 
+	
+
+	//@third party code BEGIN SIMPLYGON
+	//add material lod options
+	if ( MaterialLODSettingsWidget.IsValid() )
+	{
+		if (!RemeshingSettings.bActive)
+		{
+			MaterialLODSettingsWidget->UpdateSettings(ReductionSettings.MaterialLODSettings);
+			MaterialLODSettingsWidget->SetForceActive(false);
+		}
+		else if (RemeshingSettings.bActive)
+		{
+			MaterialLODSettingsWidget->UpdateSettings(RemeshingSettings.MaterialLODSettings);
+			MaterialLODSettingsWidget->SetForceActive(true);
+		}
+		ChildrenBuilder.AddChildCustomBuilder( MaterialLODSettingsWidget.ToSharedRef() );
+		MaterialLODSettingsWidget->SetAllowReuseUVs(!RemeshingSettings.bActive);
+		MaterialLODSettingsWidget->SetAllowMultiMaterial(!RemeshingSettings.bActive);
+	}
+	//@third party code END SIMPLYGON
+
 	{
 		ChildrenBuilder.AddChildContent(LOCTEXT("ApplyChanges", "Apply Changes"))
+			//@third party code BEGIN SIMPLYGON
+			.NameContent()
+			[
+				SNew(SCheckBox)
+				.IsChecked(this, &FSkelMeshReductionSettingsLayout::IsForceBuildChecked)
+				.OnCheckStateChanged(this, &FSkelMeshReductionSettingsLayout::OnForceBuildChanged)
+				[
+					SNew(STextBlock)
+					.Font(IDetailLayoutBuilder::GetDetailFont())
+					.Text(LOCTEXT("ForceBuild", "Force build"))
+				]
+			]
+			//@third party code END SIMPLYGON
 			.ValueContent()
 			.HAlign(HAlign_Left)
 			[
@@ -322,10 +467,133 @@ void FSkelMeshReductionSettingsLayout::GenerateChildContent(IDetailChildrenBuild
 }
 END_SLATE_FUNCTION_BUILD_OPTIMIZATION
 
+
 const FSkeletalMeshOptimizationSettings& FSkelMeshReductionSettingsLayout::GetSettings() const
 {
 	return ReductionSettings;
 }
+
+//@third party code BEGIN SIMPLYGON
+void FSkelMeshReductionSettingsLayout::SetupRemeshingSettings(IDetailChildrenBuilder& ChildrenBuilder, const TAttribute<EVisibility>& RemeshingSettingsVisibility)
+{
+	//Size On Screen
+	ChildrenBuilder.AddChildContent( LOCTEXT("SizeOnScreen", "Size On Screen") )
+	.Visibility(RemeshingSettingsVisibility)
+	.NameContent()
+	[
+		SNew(STextBlock)
+		.Font( IDetailLayoutBuilder::GetDetailFont() )
+		.Text(LOCTEXT("SizeOnScreen", "Size On Screen"))
+	]
+	.ValueContent()
+	[
+		SNew(SSpinBox<int32>)
+		.Font( IDetailLayoutBuilder::GetDetailFont() )
+		.MinValue(1)
+		.MaxValue(3000)
+		.Value(this, &FSkelMeshReductionSettingsLayout::GetSizeOnScreen)
+		.OnValueChanged(this, &FSkelMeshReductionSettingsLayout::OnSizeOnScreenChanged)
+		.OnValueCommitted(this, &FSkelMeshReductionSettingsLayout::OnSizeOnScreenCommitted)
+	];
+}
+
+const FSimplygonMaterialLODSettings& FSkelMeshReductionSettingsLayout::GetMaterialLODSettingsFromWidget() const
+{
+	return MaterialLODSettingsWidget->GetSettings();
+}
+
+const FSimplygonRemeshingSettings& FSkelMeshReductionSettingsLayout::GetRemeshingSettings() const
+{
+	return RemeshingSettings;
+}
+
+void FSkelMeshReductionSettingsLayout::UpdateSettings(const FSimplygonRemeshingSettings& InSettings)
+{
+	RemeshingSettings = InSettings;
+}
+
+EVisibility FSkelMeshReductionSettingsLayout::IsReductionSetting() const
+{
+	return !RemeshingSettings.bActive ? EVisibility::Visible : EVisibility::Collapsed;
+}
+
+EVisibility FSkelMeshReductionSettingsLayout::IsRemeshingSetting() const
+{
+	return RemeshingSettings.bActive ? EVisibility::Visible : EVisibility::Collapsed;
+}
+
+
+void FSkelMeshReductionSettingsLayout::OnLODTypeChanged(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo)
+{
+	const ESimplygonLODType::Type LODType = (ESimplygonLODType::Type)(LODTypeOptions.Find(NewSelection));
+	bool bReduction = LODType == ESimplygonLODType::Reduction ? true : false;
+//	ReductionSettings.bActive = bReduction;
+	RemeshingSettings.bActive = !bReduction;
+
+	//Material baker has settings that is only available for reduction.
+	//Update material baker settings so that we get those settings.
+	bool bExtendReduction = bReduction;
+	MaterialLODSettingsWidget->SetAllowReuseUVs(bReduction);
+	MaterialLODSettingsWidget->SetAllowMultiMaterial(bReduction);
+//	MaterialLODSettingsWidget->UpdateSettings(bReduction ? ReductionSettings.MaterialLODSettings : RemeshingSettings.MaterialLODSettings);
+	MaterialLODSettingsWidget->SetForceActive(!bReduction);
+}
+
+//Size On Screen
+int32 FSkelMeshReductionSettingsLayout::GetSizeOnScreen() const
+{
+	return RemeshingSettings.ScreenSize;
+}
+void FSkelMeshReductionSettingsLayout::OnSizeOnScreenChanged(int32 NewValue)
+{
+	RemeshingSettings.ScreenSize = NewValue;
+}
+void FSkelMeshReductionSettingsLayout::OnSizeOnScreenCommitted(int32 NewValue, ETextCommit::Type TextCommitType)
+{
+	if (FEngineAnalytics::IsAvailable())
+	{
+		FEngineAnalytics::GetProvider().RecordEvent(TEXT("Editor.Usage.StaticMesh.RemeshingSettings"), TEXT("SizeOnScreen"), FString::Printf(TEXT("f"), NewValue));
+	}
+	OnSizeOnScreenChanged(NewValue);
+}
+
+void FSkelMeshReductionSettingsLayout::UpdateBaseLODModelOptions()
+{
+	BaseLODModelOptions.Empty();
+	BaseLODModelOptions.Add( MakeShareable( new FString( FString(LOCTEXT("LODChainModel_BaseLOD", "Base LOD").ToString()) ) ) );
+
+	for (int32 LODModelIndex = 1; LODModelIndex < this->LODIndex; LODModelIndex++)
+	{
+		BaseLODModelOptions.Add( MakeShareable( new FString( FString::Printf(*LOCTEXT("LODChainModel_ID", "LOD %d").ToString(), LODModelIndex ) ) ) );
+	}
+
+	if (BaseLODModelCombo.IsValid())
+	{		
+		BaseLODModelCombo->RefreshOptions();
+		BaseLODModelCombo->SetSelectedItem(BaseLODModelOptions[ReductionSettings.BaseLODModel]);
+	}
+}
+
+void FSkelMeshReductionSettingsLayout::OnBaseLODModelChanged(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo)
+{
+	ReductionSettings.BaseLODModel = BaseLODModelOptions.Find(BaseLODModelCombo->GetSelectedItem());
+}
+
+ECheckBoxState FSkelMeshReductionSettingsLayout::IsForceBuildChecked() const
+{
+	return bForceBuild ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
+}
+
+void FSkelMeshReductionSettingsLayout::OnForceBuildChanged(ECheckBoxState NewValue)
+{
+	bForceBuild = (NewValue == ECheckBoxState::Checked);
+}
+
+bool FSkelMeshReductionSettingsLayout::IsForceBuild() const
+{
+	return bForceBuild;
+}
+//@third party code END SIMPLYGON
 
 void FSkelMeshReductionSettingsLayout::UpdateSettings(const FSkeletalMeshOptimizationSettings& InSettings)
 {
@@ -366,6 +634,11 @@ float FSkelMeshReductionSettingsLayout::GetHardAngleThreshold() const
 	return ReductionSettings.NormalsThreshold;
 }
 
+float FSkelMeshReductionSettingsLayout::GetBoneReductionRatio() const
+{
+	return ReductionSettings.BoneReductionRatio * 100.0f;
+}
+
 int32 FSkelMeshReductionSettingsLayout::GetMaxBonesPerVertex() const
 {
 	return ReductionSettings.MaxBonesPerVertex;
@@ -380,6 +653,11 @@ void FSkelMeshReductionSettingsLayout::OnPercentTrianglesChanged(float NewValue)
 void FSkelMeshReductionSettingsLayout::OnMaxDeviationChanged(float NewValue)
 {
 	ReductionSettings.MaxDeviationPercentage = NewValue / 2000.0f;
+}
+
+void FSkelMeshReductionSettingsLayout::OnBoneReductionRatioChanged(float NewValue)
+{
+	ReductionSettings.BoneReductionRatio = NewValue * 0.01f;
 }
 
 void FSkelMeshReductionSettingsLayout::OnWeldingThresholdChanged(float NewValue)
@@ -468,6 +746,9 @@ void FPersonaMeshDetails::AddLODLevelCategories(IDetailLayoutBuilder& DetailLayo
 				if (ReductionSettingsWidgets[LODIndex].IsValid())
 				{
 					ReductionSettingsWidgets[LODIndex]->UpdateSettings(LODInfo.ReductionSettings);
+					//@third party code BEGIN SIMPLYGON
+					ReductionSettingsWidgets[LODIndex]->UpdateSettings(LODInfo.RemeshingSettings);
+					//@third party code END SIMPLYGON
 				}
 
 				//LODScreenSizes[LODIndex] = SrcModel.ScreenSize;
@@ -542,8 +823,8 @@ void FPersonaMeshDetails::AddLODLevelCategories(IDetailLayoutBuilder& DetailLayo
 						.Font(DetailLayout.GetDetailFont())
 					]
 				];
-			}
 		}
+	}
 	}
 }
 
@@ -765,6 +1046,7 @@ void FPersonaMeshDetails::ApplyChanges(bool bForceUpdate)
 	else // generate LODs
 	{
 		TArray<FSkeletalMeshOptimizationSettings> Settings;
+		TArray<FSimplygonRemeshingSettings> RemeshingSettings;
 
 		int32 SettingIndex = INDEX_NONE;
 
@@ -774,6 +1056,13 @@ void FPersonaMeshDetails::ApplyChanges(bool bForceUpdate)
 			{
 				FSkeletalMeshLODInfo& Info = SkelMesh->LODInfo[LODIdx];
 				SettingIndex = Settings.Add(ReductionSettingsWidgets[LODIdx]->GetSettings());
+				check(RemeshingSettings.Add(ReductionSettingsWidgets[LODIdx]->GetRemeshingSettings()) == SettingIndex);
+				//@third party code BEGIN SIMPLYGON
+				FSimplygonMaterialLODSettings MatLodSettings = ReductionSettingsWidgets[LODIdx]->GetMaterialLODSettingsFromWidget();
+				Settings[SettingIndex].MaterialLODSettings = MatLodSettings;
+				Settings[SettingIndex].bForceRebuild = ReductionSettingsWidgets[LODIdx]->IsForceBuild();
+				RemeshingSettings[SettingIndex].MaterialLODSettings = MatLodSettings;
+				//@third party code END SIMPLYGON
 				// BonesToRemove in LODInfo is the latest info which the user assigned because it is set by UPROPERTY directly from the editor 
 				// and swap to make settings always be the latest
 				TArray<FBoneReference> TempBonesForSwap = Settings[SettingIndex].BonesToRemove;
@@ -786,6 +1075,7 @@ void FPersonaMeshDetails::ApplyChanges(bool bForceUpdate)
 		for (int32 LODIdx = CurrentNumLODs; LODIdx < LODCount; LODIdx++)
 		{
 			FSkeletalMeshOptimizationSettings Setting;
+			FSimplygonRemeshingSettings RemeshingSetting;
 			if (SettingIndex != INDEX_NONE)
 			{
 				Setting = Settings[SettingIndex];
@@ -793,9 +1083,14 @@ void FPersonaMeshDetails::ApplyChanges(bool bForceUpdate)
 
 			Setting.NumOfTrianglesPercentage *= 0.5f;
 			SettingIndex = Settings.Add(Setting);
+			RemeshingSettings.Add(RemeshingSetting);
 		}
 
-		FLODUtilities::SimplifySkeletalMesh(UpdateContext, Settings, bForceUpdateLOD);
+		FLODUtilities::SimplifySkeletalMesh(UpdateContext, Settings, RemeshingSettings, bForceUpdateLOD);
+
+		//@third party code BEGIN SIMPLYGON
+		bool bMaterialsBaked = false;
+		//@third party code END SIMPLYGON
 
 		// save reduction settings
 		for (int32 LODIdx = 1; LODIdx < LODCount; ++LODIdx)
@@ -804,8 +1099,43 @@ void FPersonaMeshDetails::ApplyChanges(bool bForceUpdate)
 			{
 				FSkeletalMeshLODInfo& Info = SkelMesh->LODInfo[LODIdx];
 				Info.ReductionSettings = Settings[LODIdx-1];
+				Info.RemeshingSettings = RemeshingSettings[LODIdx-1];
+				//@third party code BEGIN SIMPLYGON
+				bMaterialsBaked |= Info.ReductionSettings.MaterialLODSettings.bActive;
+				//@third party code END SIMPLYGON
 			}
 		}
+
+
+		//@third party code BEGIN SIMPLYGON
+		if (bMaterialsBaked)
+		{
+			// FPreviewScene sets all textures to be resident while scene exists. When Simplygon bakes new material,
+			// we should make new textures to be resident too, otherwise scene could appear blurry (with low-res mips).
+			// References:
+			//   FPreviewScene::AddComponent()
+			//   UMeshComponent::SetTextureForceResidentFlag()
+			for (int32 MaterialIndex = 0; MaterialIndex < SkelMesh->Materials.Num(); MaterialIndex++)
+			{
+				UMaterialInterface* Material = SkelMesh->Materials[MaterialIndex].MaterialInterface;
+				if (Material)
+				{
+					TArray<UTexture*> Textures;
+					Material->GetUsedTextures(Textures, EMaterialQualityLevel::Num, true, ERHIFeatureLevel::SM5, true);
+					for (int32 i = 0; i < Textures.Num(); ++i)
+					{
+						const int32 CinematicTextureGroups = 0;
+						const float Seconds = -1.0f;
+						if (UTexture2D* Texture2D = Cast<UTexture2D>(Textures[i]))
+						{
+							Texture2D->SetForceMipLevelsToBeResident(Seconds, CinematicTextureGroups);
+							Texture2D->bForceMiplevelsToBeResident = true;
+						}
+					}
+				}
+			}
+		}
+		//@third party code END SIMPLYGON
 	}
 
 	PersonaPtr->PersonaMeshDetailLayout->ForceRefreshDetails();
@@ -852,6 +1182,29 @@ bool FPersonaMeshDetails::IsApplyNeeded() const
 		{
 			return true;
 		}
+
+		//@third party code BEGIN SIMPLYGON
+		if (LODIndex < ReductionSettingsWidgets.Num() && ReductionSettingsWidgets[LODIndex].IsValid())
+		{
+			auto SettingsWidget = ReductionSettingsWidgets[LODIndex];
+
+			if (SettingsWidget->IsForceBuild())
+			{
+				return true;
+			}
+
+			if (Info.RemeshingSettings != SettingsWidget->GetRemeshingSettings())
+			{
+				return true;
+			}
+
+			// Compare FSimplygonMaterialLODSettings separately because these settings are located in separate widget, and
+			// this comparison is excluded from FSkeletalMeshOptimizationSettings::operator==()
+			FSimplygonMaterialLODSettings MatLodSettings = SettingsWidget->GetMaterialLODSettingsFromWidget();
+			if(Info.ReductionSettings.MaterialLODSettings != MatLodSettings)
+				return true;
+		}
+		//@third party code END SIMPLYGON
 	}
 
 	return false;
@@ -916,6 +1269,11 @@ void FPersonaMeshDetails::HideUnnecessaryProperties(IDetailLayoutBuilder& Detail
 
 			TSharedPtr<IPropertyHandle> ReductionHandle = ChildHandle->GetChildHandle(FName("ReductionSettings"));
 			DetailLayout.HideProperty(ReductionHandle);
+
+			//@third party code BEGIN SIMPLYGON
+			TSharedPtr<IPropertyHandle> RemeshingHandle = ChildHandle->GetChildHandle(FName("RemeshingSettings"));
+			DetailLayout.HideProperty(RemeshingHandle);
+			//@third party code END SIMPLYGON
 		}
 	}
 

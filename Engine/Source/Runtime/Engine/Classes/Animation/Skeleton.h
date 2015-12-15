@@ -609,6 +609,7 @@ public:
 	 */
 	ENGINE_API void UpdateRetargetSource( const FName InName );
 #endif
+
 protected:
 	/** 
 	 * Check if Parent Chain Matches between BoneTree, and SkelMesh 

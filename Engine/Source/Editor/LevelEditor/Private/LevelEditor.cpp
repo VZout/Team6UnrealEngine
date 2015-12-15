@@ -21,6 +21,9 @@
 #include "TargetPlatform.h"
 #include "IIntroTutorials.h"
 #include "IProjectManager.h"
+//@third party code BEGIN SIMPLYGON 
+#include "Developer/SimplygonUtilities/Public/SimplygonUtilities.h"
+//@third party code END SIMPLYGON
 
 // @todo Editor: remove this circular dependency
 #include "Editor/MainFrame/Public/Interfaces/IMainFrameModule.h"
@@ -240,6 +243,11 @@ void FLevelEditorModule::StartupModule()
 
 	FMessageLogModule& MessageLogModule = FModuleManager::LoadModuleChecked<FMessageLogModule>("MessageLog");
 	MessageLogModule.RegisterLogListing("BuildAndSubmitErrors", LOCTEXT("BuildAndSubmitErrors", "Build and Submit Errors"));
+
+	//@third party code BEGIN SIMPLYGON
+	//We want simplygon utilites to be loaded at start up
+	ISimplygonUtilities& SimplygonUtilities = FModuleManager::Get().LoadModuleChecked<ISimplygonUtilities>(TEXT("SimplygonUtilities"));  
+	//@third party code END SIMPLYGON
 }
 
 /**
@@ -331,9 +339,9 @@ void FLevelEditorModule::SummonWorldBrowserComposition()
 // @todo remove when world-centric mode is added
 void FLevelEditorModule::AttachSequencer( TSharedPtr<SWidget> SequencerWidget, TSharedPtr<IAssetEditorInstance> SequencerAssetEditor )
 {
-	TSharedPtr<SLevelEditor> LevelEditorInstance = LevelEditorInstancePtr.Pin();
+		TSharedPtr<SLevelEditor> LevelEditorInstance = LevelEditorInstancePtr.Pin();
 
-	LevelEditorInstance->AttachSequencer( SequencerWidget, SequencerAssetEditor );
+		LevelEditorInstance->AttachSequencer( SequencerWidget, SequencerAssetEditor );
 }
 
 TSharedPtr<ILevelViewport> FLevelEditorModule::GetFirstActiveViewport()

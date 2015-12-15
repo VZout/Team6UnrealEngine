@@ -21,6 +21,9 @@ struct FSoftSkinBuildVertex
 	FBoneIndexType	InfluenceBones[MAX_TOTAL_INFLUENCES];
 	uint8			InfluenceWeights[MAX_TOTAL_INFLUENCES];
 	uint32 PointWedgeIdx;
+	//@third party code BEGIN SIMPLYGON
+	uint32			OriginalWedgeIndex; // index of this wedge in a mesh before BuildSkeletalMesh call
+	//@third party code END SIMPLYGON
 };
 
 /**

@@ -87,5 +87,18 @@ namespace MaterialExportUtils
 	*/
 	DEPRECATED(4.9, "MaterialExportUtils::ExportBaseColor() will be removed, use FMaterialUtilities::ExportBaseColor().")
 	UNREALED_API bool ExportBaseColor(ULandscapeComponent* LandscapeComponent, int32 TextureSize, TArray<FColor>& OutSamples);
+
+	//@third party code BEGIN SIMPLYGON
+	UNREALED_API FMaterialRenderProxy* CreateExportMaterialProxy(UMaterialInterface* InMaterial, EMaterialProperty InMaterialProperty, FMaterialCompiler*(InCompilerReplacer)(FMaterialCompiler*) = nullptr);
+
+	enum
+	{
+		SGMaterialUse_StaticMesh   = 1,
+		SGMaterialUse_SkeletalMesh = 2,
+		SGMaterialUse_MorphTarget  = 4,
+	};
+
+	UNREALED_API UMaterial* SgCreateMaterial(const FFlattenMaterial& InFlattenMaterial, UPackage* Outer, const FString& BaseName, EObjectFlags Flags, int32 InUseFlags = SGMaterialUse_StaticMesh);
+	//@third party code END SIMPLYGON
 }
 

@@ -36,6 +36,10 @@
 #include "DeviceProfiles/DeviceProfileManager.h"
 #include "Engine/TextureLODSettings.h"
 
+//@third party code BEGIN SIMPLYGON 
+#include "Developer/SimplygonUtilities/Public/SimplygonUtilities.h"
+//@third party code END SIMPLYGON
+
 DEFINE_LOG_CATEGORY_STATIC(LogEditorExporters, Log, All);
 
 /*------------------------------------------------------------------------------
@@ -1919,7 +1923,7 @@ namespace MaterialExportUtils
 	{
 		return FMaterialUtilities::ExportMaterialProperty(InWorld, InMaterial, InMaterialProperty, InRenderTarget, OutBMP);
 	}
-	
+
 	bool ExportMaterial(UMaterialInterface* InMaterial, FFlattenMaterial& OutFlattenMaterial)
 	{
 		return FMaterialUtilities::ExportMaterial(nullptr, InMaterial, OutFlattenMaterial);

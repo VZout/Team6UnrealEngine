@@ -4,6 +4,7 @@
 #include "AssetRegistryModule.h"
 
 #include "StaticMeshEditor.h"
+#include "MeshUtilities.h"
 #include "SStaticMeshEditorViewport.h"
 #include "StaticMeshEditorViewportClient.h"
 #include "StaticMeshEditorTools.h"
@@ -51,7 +52,9 @@ const FName FStaticMeshEditor::ViewportTabId( TEXT( "StaticMeshEditor_Viewport" 
 const FName FStaticMeshEditor::PropertiesTabId( TEXT( "StaticMeshEditor_Properties" ) );
 const FName FStaticMeshEditor::SocketManagerTabId( TEXT( "StaticMeshEditor_SocketManager" ) );
 const FName FStaticMeshEditor::CollisionTabId( TEXT( "StaticMeshEditor_Collision" ) );
-
+//@third party code BEGIN SIMPLYGON
+const FName FStaticMeshEditor::SimplygonGenerateUniqueUVsTabId( TEXT( "StaticMeshEditor_SimplygonGenerateUniqueUVs" ) );
+//@third party code END SIMPLYGON
 
 void FStaticMeshEditor::RegisterTabSpawners(const TSharedRef<class FTabManager>& TabManager)
 {
@@ -79,6 +82,12 @@ void FStaticMeshEditor::RegisterTabSpawners(const TSharedRef<class FTabManager>&
 		.SetDisplayName( LOCTEXT("CollisionTab", "Convex Decomposition") )
 		.SetGroup(WorkspaceMenuCategoryRef)
 		.SetIcon(FSlateIcon(FEditorStyle::GetStyleSetName(), "StaticMeshEditor.Tabs.ConvexDecomposition"));
+	//@third party code BEGIN SIMPLYGON
+	TabManager->RegisterTabSpawner( SimplygonGenerateUniqueUVsTabId, FOnSpawnTab::CreateSP(this, &FStaticMeshEditor::SpawnTab_SimplygonGenerateUniqueUVs) )
+		.SetDisplayName( LOCTEXT("SimplygonGenerateUniqueUVsTab", "Simplygon Unique UVs") )
+		.SetGroup( WorkspaceMenuCategoryRef )
+		.SetIcon( FSlateIcon(FEditorStyle::GetStyleSetName(), "SimplygonIcon.TabIcon"));
+	//@third party code END SIMPLYGON
 }
 
 void FStaticMeshEditor::UnregisterTabSpawners(const TSharedRef<class FTabManager>& TabManager)
@@ -89,6 +98,9 @@ void FStaticMeshEditor::UnregisterTabSpawners(const TSharedRef<class FTabManager
 	TabManager->UnregisterTabSpawner( PropertiesTabId );
 	TabManager->UnregisterTabSpawner( SocketManagerTabId );
 	TabManager->UnregisterTabSpawner( CollisionTabId );
+	//@third party code BEGIN SIMPLYGON
+	TabManager->UnregisterTabSpawner( SimplygonGenerateUniqueUVsTabId );
+	//@third party code END SIMPLYGON
 }
 
 
@@ -177,6 +189,9 @@ void FStaticMeshEditor::InitStaticMeshEditor( const EToolkitMode::Type Mode, con
 					->SetSizeCoefficient(0.3f)
 					->AddTab(SocketManagerTabId, ETabState::OpenedTab)
 					->AddTab(CollisionTabId, ETabState::ClosedTab)
+					//@third party code BEGIN SIMPLYGON
+					->AddTab(SimplygonGenerateUniqueUVsTabId, ETabState::ClosedTab)
+					//@third party code END SIMPLYGON
 				)
 			)
 		)
@@ -237,6 +252,17 @@ void FStaticMeshEditor::ExtendMenu()
 			InMenuBuilder.EndSection();
 		}
 
+		//@third party code BEGIN SIMPLYGON 
+		static void FillSimplygonMenu(FMenuBuilder& InMenuBuilder)
+		{
+			InMenuBuilder.BeginSection("LoadSettings");
+			{
+				InMenuBuilder.AddMenuEntry(FStaticMeshEditorCommands::Get().SimplygonLoadSettingsIni);
+			}
+			InMenuBuilder.EndSection();
+		}  
+		//@third party code END SIMPLYGON
+
 		static void FillCollisionMenu( FMenuBuilder& InMenuBuilder )
 		{
 			InMenuBuilder.BeginSection("CollisionEditCollision");
@@ -282,6 +308,15 @@ void FStaticMeshEditor::ExtendMenu()
 				LOCTEXT("StaticMeshEditorCollisionMenu_ToolTip", "Opens a menu with commands for editing this mesh's collision"),
 				FNewMenuDelegate::CreateStatic(&Local::FillCollisionMenu),
 				"Collision");
+
+			//@third party code BEGIN SIMPLYGON 
+			//Simplygon settings loader is disable until it is compatible with Simplygon SDK 7.0
+			/*InMenuBarBuilder.AddPullDownMenu(
+				LOCTEXT("StaticMeshEditorSimplygonMenu", "Simplygon"),
+				LOCTEXT("StaticMeshEditorSimplygonMenu_ToolTip", "Opens a menu with commands realted to Simplygon"),
+				FNewMenuDelegate::CreateStatic(&Local::FillSimplygonMenu),
+				"Simplygon");*/  
+			//@third party code END SIMPLYGON
 		}
 	};
 	
@@ -299,6 +334,7 @@ void FStaticMeshEditor::ExtendMenu()
 		GetToolkitCommands(),
 		FMenuBarExtensionDelegate::CreateStatic( &Local::GenerateMeshAndCollisionMenuBars )
 		);
+
 	
 	AddMenuExtender(MenuExtender);
 	
@@ -360,6 +396,29 @@ TSharedRef<SDockTab> FStaticMeshEditor::SpawnTab_Collision( const FSpawnTabArgs&
 			ConvexDecomposition.ToSharedRef()
 		];
 }
+
+//@third party code BEGIN SIMPLYGON
+TSharedRef<SDockTab> FStaticMeshEditor::SpawnTab_SimplygonGenerateUniqueUVs( const FSpawnTabArgs& Args )
+{
+	check( Args.GetTabId() == SimplygonGenerateUniqueUVsTabId );
+
+#if !PLATFORM_WINDOWS
+	FText ErrorMessage = FText::Format( LOCTEXT("SimplygonGenerateUniqueUVs_Unsupported", "Using Simplygon to Generate Unique UVs not yet implemented for {0}."), FText::FromString( FPlatformProperties::IniPlatformName() ) );
+	OpenMsgDlgInt( EAppMsgType::Ok, ErrorMessage, LOCTEXT("SimplygonGenerateUniqueUVs_UnsupportedErrorCaption", "Error") );
+#endif
+
+	return SNew(SDockTab)
+		.Label( LOCTEXT("SimplygonGenerateUniqueUVs_TabTitle", "Simplygon Unique UVs") )
+		[
+#if PLATFORM_WINDOWS
+			SimplygonGenerateUniqueUVs.ToSharedRef()
+#else
+			SNew(STextBlock)
+			.Text( ErrorMessage )
+#endif
+		];
+}
+//@third party code END SIMPLYGON
 
 void FStaticMeshEditor::BindCommands()
 {
@@ -448,11 +507,46 @@ void FStaticMeshEditor::BindCommands()
 		Commands.SaveGeneratedLODs,
 		FExecuteAction::CreateSP(this, &FStaticMeshEditor::OnSaveGeneratedLODs));
 
+	
+	//@third party code BEGIN SIMPLYGON 
+	//Simplygon Menu
+	UICommandList->MapAction(
+		Commands.SimplygonLoadSettingsIni,
+		FExecuteAction::CreateSP(this, &FStaticMeshEditor::LoadSimplygonSettings));  
+	//@third party code END SIMPLYGON
+
 	// Collision Menu
 	UICommandList->MapAction(
 		Commands.CreateAutoConvexCollision,
 		FExecuteAction::CreateSP(this, &FStaticMeshEditor::OnConvexDecomposition));
+
 }
+
+
+//@third party code BEGIN SIMPLYGON 
+void FStaticMeshEditor::LoadSimplygonSettings()
+{
+	TArray<FString> OutFileNames;
+
+	ISimplygonUtilities& SimplygonUtilities = FModuleManager::Get().LoadModuleChecked<ISimplygonUtilities>(TEXT("SimplygonUtilities"));
+
+	if (PromptUserForFile(OutFileNames,TEXT("Select Simplygon Ini File"),TEXT(""),TEXT(""),TEXT("INI file (*.ini)|*.ini")))
+	{
+		if(OutFileNames.Num() > 0)
+		{
+			SimplygonUtilities.LoadSimplygonSettingsIni( OutFileNames[0], SimplygonSettingsLODInfo );
+
+			OnLoadSimplygonSettingsCompletedEvent.CompactInvocationList();
+			if(OnLoadSimplygonSettingsCompletedEvent.IsBound())
+			{
+				OnLoadSimplygonSettingsCompletedEvent.Broadcast();
+
+			}
+
+		}
+	}
+}  
+//@third party code END SIMPLYGON
 
 void FStaticMeshEditor::ExtendToolBar()
 {
@@ -527,6 +621,11 @@ void FStaticMeshEditor::BuildSubTools()
 
 	SAssignNew( ConvexDecomposition, SConvexDecomposition )
 		.StaticMeshEditorPtr(SharedThis(this));
+
+	//@third party code BEGIN SIMPLYGON 
+	SAssignNew(SimplygonGenerateUniqueUVs, SSimplygonGenerateUniqueUVs)
+		.StaticMeshEditorPtr(SharedThis(this));  
+	//@third party code END SIMPLYGON
 
 	// Build toolbar widgets
 	UVChannelCombo = SNew(STextComboBox)
@@ -1627,6 +1726,13 @@ bool FStaticMeshEditor::CanChangeMesh() const
 				CanChange = true;
 			}
 		}
+		//@third party code BEGIN SIMPLYGON
+		// Refresh the tool so it will update it's LOD list.
+		if(SimplygonGenerateUniqueUVs.IsValid())
+		{
+			SimplygonGenerateUniqueUVs->RefreshTool();
+	}
+		//@third party code END SIMPLYGON
 	}
 
 	return CanChange;
@@ -1989,5 +2095,7 @@ void FStaticMeshEditor::OnPostReimport(UObject* InObject, bool bSuccess)
 		RefreshTool();
 	}
 }
+
+
 
 #undef LOCTEXT_NAMESPACE

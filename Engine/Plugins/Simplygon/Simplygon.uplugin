@@ -1,0 +1,21 @@
+{
+	"FileVersion" : 3,
+	
+	"FriendlyName" : "Simplygon Plugin",
+	"Version" : 1,
+	"VersionName" : "1.0",
+	"CreatedBy" : "Donya Labs AB",
+	"CreatedByURL" : "www.simplygon.com",
+	"EngineVersion" : "4.6.0",
+	"Description" : "This is a plugin that extends the original Simplygon integration",
+	"Category" : "Simplygon",
+	"EnabledByDefault" : true,
+	
+	"Modules" :
+	[
+		{
+			"Name" : "SimplygonGUI",
+			"Type" : "Editor"
+		}
+	]
+}

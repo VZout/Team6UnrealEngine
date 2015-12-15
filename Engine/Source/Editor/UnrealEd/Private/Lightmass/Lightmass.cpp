@@ -1447,6 +1447,56 @@ void FLightmassExporter::WriteMeshInstances( int32 Channel )
 		}
 	}
 
+	//@third party code BEGIN SIMPLYGON
+#if SG_ENABLE_DEPRECATED_MASSIVELOD
+	//Used for MassiveLOD
+	for (int32 MeshIndex = 0; MeshIndex < StaticMeshLightingMeshes.Num(); ++MeshIndex)
+	{
+		const FStaticMeshStaticLightingMesh* SMLightingMesh = StaticMeshLightingMeshes[MeshIndex];
+		const UStaticMesh* StaticMesh = SMLightingMesh->StaticMesh;
+		if (StaticMesh)
+		{
+			const UStaticMeshComponent* Primitive = SMLightingMesh->Primitive;
+			if (Primitive)
+			{
+				const UPrimitiveComponent* Parent = Primitive;
+
+				int32 CurrentLOD = 0;
+
+				FMeshAndLODId* ParentID = NULL;
+
+				while (Parent)
+				{
+					ParentID = ComponentToIDMap.Find(Parent);
+
+					if (ParentID)
+					{
+						ParentID->LODIndex = FMath::Max(CurrentLOD, ParentID->LODIndex);
+					}
+
+					if (Parent->ReplacementPrimitive && Parent->ReplacementPrimitive->IsA(UStaticMeshComponent::StaticClass()))
+					{
+						Parent = Parent->ReplacementPrimitive.Get();
+						CurrentLOD++;
+					}
+					else
+					{
+						Parent = NULL;
+					}
+				}
+
+				if (ParentID)
+				{
+					FMeshAndLODId* MyID = ComponentToIDMap.Find(Primitive);
+					check(MyID);
+					MyID->MeshIndex = ParentID->MeshIndex;
+				}
+			}
+		}
+	}
+#endif
+	//@third party code END SIMPLYGON
+
 	// static mesh instance meshes
 	for( int32 MeshIdx=0; MeshIdx < StaticMeshLightingMeshes.Num(); MeshIdx++ )
 	{

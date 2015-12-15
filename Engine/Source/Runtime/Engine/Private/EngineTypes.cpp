@@ -226,3 +226,118 @@ FRepMovement::FRepMovement()
 	, RotationQuantizationLevel(ERotatorQuantization::ByteComponents)
 {
 }
+
+//@third party code - BEGIN SIMPLYGON
+FSimplygonMaterialLODSettings::FSimplygonMaterialLODSettings()
+	: bActive(false)
+	, MaterialLODType(EMaterialLODType::BakeTexture)
+	, bUseAutomaticSizes(false)
+	, TextureWidth(ESimplygonTextureResolution::Type::TextureResolution_512)
+	, TextureHeight(ESimplygonTextureResolution::Type::TextureResolution_512)
+	, SamplingQuality(ESimplygonTextureSamplingQuality::Low)
+	, GutterSpace(4)
+	, TextureStrech(ESimplygonTextureStrech::Medium)
+	, bReuseExistingCharts(false)
+	, bBakeVertexData(true)
+	, bBakeActorData(false)
+	, bAllowMultiMaterial(false)
+	, bPreferTwoSideMaterials(false)
+{
+	/*
+	 * Note: when adding new channels here, should update
+	 * - FSimplygonUtilities::CreateFlattenMaterial()
+	 * - MaterialBakerSettingsLayout.h, SIMPLYGON_NUM_CHANNELS_TO_BAKE constant
+	 * - MaterialExportUtils::FFlattenMaterial struct
+	 */
+	ChannelsToCast.Add(FSimplygonChannelCastingSettings(ESimplygonMaterialChannel::SG_MATERIAL_CHANNEL_BASECOLOR,ESimplygonCasterType::Color,ESimplygonColorChannels::RGB));
+	ChannelsToCast.Add(FSimplygonChannelCastingSettings(ESimplygonMaterialChannel::SG_MATERIAL_CHANNEL_SPECULAR,ESimplygonCasterType::Color,ESimplygonColorChannels::RGB));
+	ChannelsToCast.Add(FSimplygonChannelCastingSettings(ESimplygonMaterialChannel::SG_MATERIAL_CHANNEL_ROUGHNESS,ESimplygonCasterType::Color,ESimplygonColorChannels::RGB));
+	ChannelsToCast.Add(FSimplygonChannelCastingSettings(ESimplygonMaterialChannel::SG_MATERIAL_CHANNEL_METALLIC,ESimplygonCasterType::Color,ESimplygonColorChannels::RGB));
+	ChannelsToCast.Add(FSimplygonChannelCastingSettings(ESimplygonMaterialChannel::SG_MATERIAL_CHANNEL_NORMALS,ESimplygonCasterType::Normals,ESimplygonColorChannels::RGB));
+	ChannelsToCast.Add(FSimplygonChannelCastingSettings(ESimplygonMaterialChannel::SG_MATERIAL_CHANNEL_OPACITY,ESimplygonCasterType::Opacity,ESimplygonColorChannels::RGB));
+	ChannelsToCast.Add(FSimplygonChannelCastingSettings(ESimplygonMaterialChannel::SG_MATERIAL_CHANNEL_EMISSIVE,ESimplygonCasterType::Color,ESimplygonColorChannels::RGB));
+	ChannelsToCast.Add(FSimplygonChannelCastingSettings(ESimplygonMaterialChannel::SG_MATERIAL_CHANNEL_AO,ESimplygonCasterType::Color,ESimplygonColorChannels::RGB));
+}
+
+FSimplygonMaterialLODSettings::FSimplygonMaterialLODSettings(const FSimplygonMaterialLODSettings& Other)
+	: bActive(Other.bActive)
+	, MaterialLODType(Other.MaterialLODType)
+	, bUseAutomaticSizes(Other.bUseAutomaticSizes)
+	, TextureWidth(Other.TextureWidth)
+	, TextureHeight(Other.TextureHeight)
+	, SamplingQuality(Other.SamplingQuality)
+	, GutterSpace(Other.GutterSpace)
+	, TextureStrech(Other.TextureStrech)
+	, bReuseExistingCharts(Other.bReuseExistingCharts)
+	, bBakeVertexData(Other.bBakeVertexData)
+	, bBakeActorData(Other.bBakeActorData)
+	, bAllowMultiMaterial(Other.bAllowMultiMaterial)
+	, bPreferTwoSideMaterials(Other.bPreferTwoSideMaterials)
+{
+	ChannelsToCast.Empty();
+	for(int ItemIndex=0; ItemIndex < Other.ChannelsToCast.Num(); ItemIndex++)
+	{
+		ChannelsToCast.Add(Other.ChannelsToCast[ItemIndex]);
+		
+	}
+}
+
+bool FSimplygonMaterialLODSettings::operator==(const FSimplygonMaterialLODSettings& Other) const
+{
+	if (bActive == false && Other.bActive == false)
+	{
+		// Ignore other fields when both objects are inactive
+		return true;
+	}
+
+	if (bActive != Other.bActive)
+	{
+		return false;
+	}
+
+	// Compare channels. Do that carefully to avoid false 'differs' when comparing objects
+	// prepared with different integration versions, i.e. when number of casting channels differs.
+	int32 NumCastChannels = FMath::Max(ChannelsToCast.Num(), Other.ChannelsToCast.Num());
+	for (int32 ItemIndex = 0; ItemIndex < NumCastChannels; ItemIndex++)
+	{
+		if (!ChannelsToCast.IsValidIndex(ItemIndex))
+		{
+			// 'this' has less ChannelsToCast items - check if corresponding Other's channel enabled
+			if (Other.ChannelsToCast[ItemIndex].bActive)
+			{
+				// enabled, so settings differs
+				return false;
+			}
+			continue;
+		}
+		// Check opposite condition
+		if (!Other.ChannelsToCast.IsValidIndex(ItemIndex))
+		{
+			if (ChannelsToCast[ItemIndex].bActive)
+			{
+				return false;
+			}
+			continue;
+		}
+		// This channel exists in both structures, compare settings
+		if (ChannelsToCast[ItemIndex] != Other.ChannelsToCast[ItemIndex])
+		{
+			return false;
+		}
+	}
+	
+	// Compare other fields
+	return MaterialLODType == Other.MaterialLODType
+		&& bUseAutomaticSizes == Other.bUseAutomaticSizes
+		&& TextureWidth == Other.TextureWidth
+		&& TextureHeight == Other.TextureHeight
+		&& SamplingQuality == Other.SamplingQuality
+		&& GutterSpace == Other.GutterSpace
+		&& TextureStrech == Other.TextureStrech
+		&& bReuseExistingCharts == Other.bReuseExistingCharts
+		&& bBakeVertexData == Other.bBakeVertexData
+		&& bBakeActorData == Other.bBakeActorData
+		&& bAllowMultiMaterial == Other.bAllowMultiMaterial
+		&& bPreferTwoSideMaterials == Other.bPreferTwoSideMaterials;
+}
+//@third party code - END SIMPLYGON

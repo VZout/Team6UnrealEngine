@@ -30,11 +30,28 @@ DEFINE_LOG_CATEGORY_STATIC(LogStaticMeshEditorTools,Log,All);
 
 FStaticMeshDetails::FStaticMeshDetails( class FStaticMeshEditor& InStaticMeshEditor )
 	: StaticMeshEditor( InStaticMeshEditor )
-{}
+{
+	//@third party code BEGIN SIMPLYGON 
+	StaticMeshEditor.OnLoadSimplygonSettingsCompleted().Clear();
+	StaticMeshEditor.OnLoadSimplygonSettingsCompleted().AddRaw(this,&FStaticMeshDetails::OnSimplygonSettingsLoaded);  
+	//@third party code END SIMPLYGON
+
+}
 
 FStaticMeshDetails::~FStaticMeshDetails()
 {
 }
+
+//@third party code BEGIN SIMPLYGON 
+void FStaticMeshDetails::OnSimplygonSettingsLoaded()
+{
+	if (StaticMeshEditor.SimplygonSettingsLODInfo.Num() > 0)
+	{
+		LevelOfDetailSettings->SetLODInfoArray(StaticMeshEditor.SimplygonSettingsLODInfo);
+		LevelOfDetailSettings->UpdateDetailsLayout();
+	}
+}  
+//@third party code END SIMPLYGON
 
 void FStaticMeshDetails::CustomizeDetails( class IDetailLayoutBuilder& DetailBuilder )
 {
@@ -47,7 +64,10 @@ void FStaticMeshDetails::CustomizeDetails( class IDetailLayoutBuilder& DetailBui
 	LevelOfDetailSettings = MakeShareable( new FLevelOfDetailSettingsLayout( StaticMeshEditor ) );
 
 	LevelOfDetailSettings->AddToDetailsPanel( DetailBuilder );
-
+	//@third party code BEGIN SIMPLYGON 
+	int32 NumberOfLODs = StaticMeshEditor.SimplygonSettingsLODInfo.Num();
+	//@third party code END SIMPLYGON
+	
 	
 	TSharedRef<IPropertyHandle> BodyProp = DetailBuilder.GetProperty("BodySetup");
 	BodyProp->MarkHiddenByCustomization();
@@ -248,13 +268,38 @@ static UEnum& GetFeatureImportanceEnum()
 	return *FeatureImportanceEnum;
 }
 
-static void FillEnumOptions(TArray<TSharedPtr<FString> >& OutStrings, UEnum& InEnum)
+//@third party code BEGIN SIMPLYGON
+//Modified so that we can use the "display text" in comboboxes
+static void FillEnumOptions(TArray<TSharedPtr<FString> >& OutStrings, UEnum& InEnum, bool UseDiplayText = false)
 {
+	//check if enum has dispaly text metadata
+	if(!InEnum.HasMetaData(TEXT("DisplayName")))
+	{
+		//UseDiplayText = false;
+	}
+
 	for (int32 EnumIndex = 0; EnumIndex < InEnum.NumEnums() - 1; ++EnumIndex)
+	{
+		if(!UseDiplayText)
+		{
+		OutStrings.Add(MakeShareable(new FString(InEnum.GetEnumName(EnumIndex))));
+	}
+		else
+		{
+			OutStrings.Add(MakeShareable(new FString(InEnum.GetDisplayNameText(EnumIndex).ToString())));
+		}
+
+	}
+}  
+
+static void FillAggressivenessOptions(TArray<TSharedPtr<FString> >& OutStrings, UEnum& InEnum)
+{
+	for (int32 EnumIndex = 1; EnumIndex < InEnum.NumEnums() - 1; ++EnumIndex)
 	{
 		OutStrings.Add(MakeShareable(new FString(InEnum.GetEnumName(EnumIndex))));
 	}
 }
+//@third party code END SIMPLYGON
 
 FMeshBuildSettingsLayout::FMeshBuildSettingsLayout( TSharedRef<FLevelOfDetailSettingsLayout> InParentLODSettings )
 	: ParentLODSettings( InParentLODSettings )
@@ -818,6 +863,7 @@ void FMeshBuildSettingsLayout::OnBuildScaleZChanged( float NewScaleZ, ETextCommi
 	}
 }
 
+
 void FMeshBuildSettingsLayout::OnDistanceFieldResolutionScaleChanged(float NewValue)
 {
 	BuildSettings.DistanceFieldResolutionScale = NewValue;
@@ -832,10 +878,37 @@ void FMeshBuildSettingsLayout::OnDistanceFieldResolutionScaleCommitted(float New
 	OnDistanceFieldResolutionScaleChanged(NewValue);
 }
 
-FMeshReductionSettingsLayout::FMeshReductionSettingsLayout( TSharedRef<FLevelOfDetailSettingsLayout> InParentLODSettings )
+//@third party code BEGIN SIMPLYGON 
+static UEnum& GetLODTypeEnum()
+{
+	static FName LODTypeName(TEXT("ESimplygonLODType::Reduction"));
+	static UEnum* LODTypeEnum = NULL;
+	if (LODTypeEnum == NULL)
+	{
+		UEnum::LookupEnumName(LODTypeName, &LODTypeEnum);
+		check(LODTypeEnum);
+	}
+	return *LODTypeEnum;
+
+}  
+//@third party code END SIMPLYGON
+
+FMeshReductionSettingsLayout::FMeshReductionSettingsLayout( TSharedRef<FLevelOfDetailSettingsLayout> InParentLODSettings, int32 InLODIndex )	
 	: ParentLODSettings( InParentLODSettings )
 {
 	FillEnumOptions(ImportanceOptions, GetFeatureImportanceEnum());
+
+	//@third party code BEGIN SIMPLYGON
+	FillEnumOptions(LODTypeOptions, GetLODTypeEnum());
+	FillAggressivenessOptions(AggressivenessOptions, GetFeatureImportanceEnum());
+	LODIndex = InLODIndex;
+	UpdateBaseLODModelOptions(); 
+	bForceBuild = false;
+
+	//add material lod options
+	ISimplygonUtilities& SimplygonUtilities = FModuleManager::Get().LoadModuleChecked<ISimplygonUtilities>("SimplygonUtilities");
+	MaterialLODSettingsWidget = MakeShareable( SimplygonUtilities.CreateMaterialLODSettingsLayout(LODIndex, true) );
+	//@third party code END SIMPLYGON
 }
 
 FMeshReductionSettingsLayout::~FMeshReductionSettingsLayout()
@@ -850,14 +923,123 @@ void FMeshReductionSettingsLayout::GenerateHeaderRowContent( FDetailWidgetRow& N
 		.Text( LOCTEXT("MeshReductionSettings", "Reduction Settings") )
 		.Font( IDetailLayoutBuilder::GetDetailFont() )
 	];
+
+	//@third party code BEGIN SIMPLYGON 
+	NodeRow.ValueContent()
+		[
+			SAssignNew(LODTypeCombo, STextComboBox)
+			//.Font( IDetailLayoutBuilder::GetDetailFont() )
+			.ContentPadding(0)
+			.OptionsSource(&LODTypeOptions)
+			.InitiallySelectedItem(ReductionSettings.bActive ? LODTypeOptions[0] : LODTypeOptions[1])
+			.OnSelectionChanged(this, &FMeshReductionSettingsLayout::OnLODTypeChanged)
+		];  
+	//@third party code END SIMPLYGON
 }
 
 
 BEGIN_SLATE_FUNCTION_BUILD_OPTIMIZATION
 void FMeshReductionSettingsLayout::GenerateChildContent( IDetailChildrenBuilder& ChildrenBuilder )
 {
+	//@third party code BEGIN SIMPLYGON
+	TAttribute<EVisibility> ReductionSettingVisibility( this, &FMeshReductionSettingsLayout::IsReductionSetting);
+	TAttribute<EVisibility> RemeshingSettingVisibility( this, &FMeshReductionSettingsLayout::IsRemeshingSetting);
+
 	{
+		ChildrenBuilder.AddChildContent( LOCTEXT("BaseLODMesh", "Generate LOD From") )
+			.Visibility(ReductionSettingVisibility)
+			.NameContent()
+			[
+				SNew( STextBlock )
+				.Font( IDetailLayoutBuilder::GetDetailFont() )
+				.Text( LOCTEXT("BaseLODMesh", "Generate LOD From") )
+			]
+		.ValueContent()
+		[
+			SAssignNew(BaseLODModelCombo, STextComboBox)
+			//.Font( IDetailLayoutBuilder::GetDetailFont() )
+			.ContentPadding(0)
+			.OptionsSource(&BaseLODModelOptions)
+			.InitiallySelectedItem(BaseLODModelOptions[ReductionSettings.BaseLODModel])
+			.OnSelectionChanged(this, &FMeshReductionSettingsLayout::OnBaseLODModelChanged)
+		];
+		
+		SetupRemeshingSettings(ChildrenBuilder, RemeshingSettingVisibility);
+
+		//Visibility aided
+		ChildrenBuilder.AddChildContent( LOCTEXT("VisibilityAided", "Visibility Aided") )
+		.Visibility(ReductionSettingVisibility)
+		.NameContent()
+		[
+			SNew(STextBlock)
+			.Font( IDetailLayoutBuilder::GetDetailFont() )
+			.Text(LOCTEXT("VisibilityAided", "Visibility Aided"))
+		]
+		.ValueContent()
+		[
+			SNew(SCheckBox)
+			.IsChecked(this, &FMeshReductionSettingsLayout::IsVisibilityAidedChecked)
+			.OnCheckStateChanged(this, &FMeshReductionSettingsLayout::OnVisibilityAidedChanged)
+		];
+		
+		//Cull occluded
+		ChildrenBuilder.AddChildContent( LOCTEXT("CullOccluded", "Cull Occluded") )
+		.Visibility(ReductionSettingVisibility)
+		.NameContent()
+		[
+			SNew(STextBlock)
+			.Font( IDetailLayoutBuilder::GetDetailFont() )
+			.Text(LOCTEXT("CullOccluded", "Cull Occluded"))
+		]
+		.ValueContent()
+			[
+				SNew(SCheckBox)
+				.IsChecked(this, &FMeshReductionSettingsLayout::IsCullOccludedChecked)
+				.OnCheckStateChanged(this, &FMeshReductionSettingsLayout::OnCullOccludedChanged)
+				.IsEnabled(this, &FMeshReductionSettingsLayout::IsVisibilityAidedEnabled)
+			];
+		
+		//Aggressiveness
+		ChildrenBuilder.AddChildContent( LOCTEXT("Agressiveness_MeshSimplification", "Aggressiveness") )
+		.Visibility(ReductionSettingVisibility)
+		.NameContent()
+		[
+			SNew( STextBlock )
+			.Font( IDetailLayoutBuilder::GetDetailFont() )
+			.Text( LOCTEXT("Aggressiveness_MeshSimplification", "Aggressiveness") )
+		]
+		.ValueContent()
+			[
+				SAssignNew(SilhouetteCombo, STextComboBox)
+				//.Font( IDetailLayoutBuilder::GetDetailFont() )
+				.ContentPadding(0)
+				.OptionsSource(&AggressivenessOptions)
+				.InitiallySelectedItem(AggressivenessOptions[ReductionSettings.VisibilityAggressiveness])
+				.OnSelectionChanged(this, &FMeshReductionSettingsLayout::OnAggressivenessChanged)
+				.IsEnabled(this, &FMeshReductionSettingsLayout::IsVisibilityAidedEnabled)
+			];
+		
+		// Keep Symmetry check box.
+		ChildrenBuilder.AddChildContent( LOCTEXT("KeepSymmetry", "Keep Symmetry") )
+			.Visibility(ReductionSettingVisibility)
+			.NameContent()
+			[
+				SNew(STextBlock)
+				.Font( IDetailLayoutBuilder::GetDetailFont() )
+				.Text(LOCTEXT("KeepSymmetry", "Keep Symmetry"))
+			]
+		.ValueContent()
+			[
+				SNew(SCheckBox)
+				.IsChecked(this, &FMeshReductionSettingsLayout::IsKeepSymmetryChecked)
+				.OnCheckStateChanged(this, &FMeshReductionSettingsLayout::OnKeepSymmetryChanged)
+			];
+		//@third party code END SIMPLYGON
+		
 		ChildrenBuilder.AddChildContent( LOCTEXT("PercentTriangles", "Percent Triangles") )
+			//@third party code BEGIN SIMPLYGON 
+			.Visibility(ReductionSettingVisibility)
+			//@third party code END SIMPLYGON
 		.NameContent()
 		[
 			SNew(STextBlock)
@@ -879,6 +1061,9 @@ void FMeshReductionSettingsLayout::GenerateChildContent( IDetailChildrenBuilder&
 
 	{
 		ChildrenBuilder.AddChildContent( LOCTEXT("MaxDeviation", "Max Deviation") )
+			//@third party code BEGIN SIMPLYGON 
+			.Visibility(ReductionSettingVisibility)
+			//@third party code END SIMPLYGON
 		.NameContent()
 		[
 			SNew(STextBlock)
@@ -900,6 +1085,9 @@ void FMeshReductionSettingsLayout::GenerateChildContent( IDetailChildrenBuilder&
 
 	{
 		ChildrenBuilder.AddChildContent( LOCTEXT("Silhouette_MeshSimplification", "Silhouette") )
+			//@third party code BEGIN SIMPLYGON 
+			.Visibility(ReductionSettingVisibility)
+			//@third party code END SIMPLYGON
 		.NameContent()
 		[
 			SNew( STextBlock )
@@ -920,6 +1108,9 @@ void FMeshReductionSettingsLayout::GenerateChildContent( IDetailChildrenBuilder&
 
 	{
 		ChildrenBuilder.AddChildContent( LOCTEXT("Texture_MeshSimplification", "Texture") )
+			//@third party code BEGIN SIMPLYGON 
+			.Visibility(ReductionSettingVisibility)
+			//@third party code END SIMPLYGON
 		.NameContent()
 		[
 			SNew( STextBlock )
@@ -940,6 +1131,9 @@ void FMeshReductionSettingsLayout::GenerateChildContent( IDetailChildrenBuilder&
 
 	{
 		ChildrenBuilder.AddChildContent( LOCTEXT("Shading_MeshSimplification", "Shading") )
+			//@third party code BEGIN SIMPLYGON 
+			.Visibility(ReductionSettingVisibility)
+			//@third party code END SIMPLYGON
 		.NameContent()
 		[
 			SNew( STextBlock )
@@ -958,8 +1152,39 @@ void FMeshReductionSettingsLayout::GenerateChildContent( IDetailChildrenBuilder&
 
 	}
 
+	//@third party code BEGIN SIMPLYGON
+	
+	//VertexColor importance drop down
+	{
+		ChildrenBuilder.AddChildContent(LOCTEXT("VertexColor_MeshSimplification", "VertexColor"))
+			//@third party code BEGIN SIMPLYGON 
+			.Visibility(ReductionSettingVisibility)
+			//@third party code END SIMPLYGON
+			.NameContent()
+			[
+				SNew(STextBlock)
+				.Font(IDetailLayoutBuilder::GetDetailFont())
+				.Text(LOCTEXT("VertexColor_MeshSimplification", "VertexColor"))
+			]
+		.ValueContent()
+			[
+				SAssignNew(VertexColorCombo, STextComboBox)
+				//.Font( IDetailLayoutBuilder::GetDetailFont() )
+				.ContentPadding(0)
+				.OptionsSource(&ImportanceOptions)
+				.InitiallySelectedItem(ImportanceOptions[ReductionSettings.VertexColorImportance])
+				.OnSelectionChanged(this, &FMeshReductionSettingsLayout::OnVertexColorImportanceChanged)
+			];
+
+	}
+	//@third party code END SIMPLYGON
+
 	{
 		ChildrenBuilder.AddChildContent( LOCTEXT("WeldingThreshold", "Welding Threshold") )
+			//@third party code BEGIN SIMPLYGON 
+			.Visibility(ReductionSettingVisibility)
+
+			//@third party code END SIMPLYGON
 		.NameContent()
 		[
 			SNew(STextBlock)
@@ -1013,12 +1238,49 @@ void FMeshReductionSettingsLayout::GenerateChildContent( IDetailChildrenBuilder&
 			.Value(this, &FMeshReductionSettingsLayout::GetHardAngleThreshold)
 			.OnValueChanged(this, &FMeshReductionSettingsLayout::OnHardAngleThresholdChanged)
 			.OnValueCommitted(this, &FMeshReductionSettingsLayout::OnHardAngleThresholdCommitted)
+			//@third party code BEGIN SIMPLYGON
+			.IsEnabled(this, &FMeshReductionSettingsLayout::RecalculateNormalsEnabled)
+			//@third party code END SIMPLYGON
 		];
 
 	}
+	
+	//@third party code BEGIN SIMPLYGON
+
+	if ( MaterialLODSettingsWidget.IsValid() )
+	{
+		if (ReductionSettings.bActive)
+		{
+			MaterialLODSettingsWidget->UpdateSettings(ReductionSettings.MaterialLODSettings);
+			MaterialLODSettingsWidget->SetForceActive(false);
+		}
+		else if (RemeshingSettings.bActive)
+		{
+			MaterialLODSettingsWidget->UpdateSettings(RemeshingSettings.MaterialLODSettings);
+			MaterialLODSettingsWidget->SetForceActive(true);
+		}
+
+		ChildrenBuilder.AddChildCustomBuilder( MaterialLODSettingsWidget.ToSharedRef() );
+		MaterialLODSettingsWidget->SetAllowReuseUVs(ReductionSettings.bActive);
+		MaterialLODSettingsWidget->SetAllowMultiMaterial(ReductionSettings.bActive);
+	}
+	//@third party code END SIMPLYGON
 
 	{
 		ChildrenBuilder.AddChildContent( LOCTEXT("ApplyChanges", "Apply Changes") )
+			//@third party code BEGIN SIMPLYGON
+			.NameContent()
+			[
+				SNew(SCheckBox)
+				.IsChecked(this, &FMeshReductionSettingsLayout::IsForceBuildChecked)
+				.OnCheckStateChanged(this, &FMeshReductionSettingsLayout::OnForceBuildChanged)
+				[
+					SNew(STextBlock)
+					.Font(IDetailLayoutBuilder::GetDetailFont())
+					.Text(LOCTEXT("ForceBuild", "Force build"))
+				]
+			]
+			//@third party code END SIMPLYGON
 			.ValueContent()
 			.HAlign(HAlign_Left)
 			[
@@ -1036,8 +1298,154 @@ void FMeshReductionSettingsLayout::GenerateChildContent( IDetailChildrenBuilder&
 	SilhouetteCombo->SetSelectedItem(ImportanceOptions[ReductionSettings.SilhouetteImportance]);
 	TextureCombo->SetSelectedItem(ImportanceOptions[ReductionSettings.TextureImportance]);
 	ShadingCombo->SetSelectedItem(ImportanceOptions[ReductionSettings.ShadingImportance]);
+
+//@third party BEGIN SIMPLYGON
+	VertexColorCombo->SetSelectedItem(ImportanceOptions[ReductionSettings.VertexColorImportance]);
+//@third party END SIMPLYGON
+
 }
 END_SLATE_FUNCTION_BUILD_OPTIMIZATION
+
+//@third party code BEGIN SIMPLYGON 
+void FMeshReductionSettingsLayout::SetupRemeshingSettings(IDetailChildrenBuilder& ChildrenBuilder, const TAttribute<EVisibility>& RemeshingSettingsVisibility)
+{
+	//Size On Screen
+	ChildrenBuilder.AddChildContent( LOCTEXT("SizeOnScreen", "Size On Screen") )
+	.Visibility(RemeshingSettingsVisibility)
+	.NameContent()
+	[
+		SNew(STextBlock)
+		.Font( IDetailLayoutBuilder::GetDetailFont() )
+		.Text(LOCTEXT("SizeOnScreen", "Size On Screen"))
+	]
+	.ValueContent()
+	[
+		SNew(SSpinBox<int32>)
+		.Font( IDetailLayoutBuilder::GetDetailFont() )
+		.MinValue(1)
+		.MaxValue(3000)
+		.Value(this, &FMeshReductionSettingsLayout::GetSizeOnScreen)
+		.OnValueChanged(this, &FMeshReductionSettingsLayout::OnSizeOnScreenChanged)
+		.OnValueCommitted(this, &FMeshReductionSettingsLayout::OnSizeOnScreenCommitted)
+	];
+}
+
+
+void FMeshReductionSettingsLayout::SetupMaterialLODSettings(IDetailChildrenBuilder& ChildrenBuilder)
+{
+	IDetailGroup& MaterialMergeGroup = ChildrenBuilder.AddChildGroup(TEXT("MaterialLOD"), LOCTEXT("MaterialLOD","MaterialLOD"));
+	MaterialMergeGroup.HeaderRow()
+		.NameContent()
+		[
+			SNew(STextBlock)
+			.Text(LOCTEXT("MaterialLOD", "MaterialLOD"))
+			.Font( IDetailLayoutBuilder::GetDetailFont() )
+		]
+	.ValueContent()
+		[
+			SNew(SCheckBox)
+			/*.IsChecked(this, &FMeshReductionSettingsLayout::IsMaterialLODChecked)
+			.OnCheckStateChanged(this, &FMeshReductionSettingsLayout::OnMaterialLODChanged)*/
+		];
+
+	MaterialMergeGroup.AddWidgetRow()
+		.NameContent()
+		[
+			SNew(STextBlock)
+			.Font( IDetailLayoutBuilder::GetDetailFont() )
+			.Text(LOCTEXT("MaterialLOD_Width", "Width"))
+		]
+	.ValueContent()
+		[
+			SNew(SSpinBox<int32>)
+			.Font( IDetailLayoutBuilder::GetDetailFont() )
+			.MinValue(64)
+			.MaxValue(8096)
+			/*.Value(this, &FMeshReductionSettingsLayout::GetSizeOnScreen)
+			.OnValueChanged(this, &FMeshReductionSettingsLayout::OnSizeOnScreenChanged)
+			.OnValueCommitted(this, &FMeshReductionSettingsLayout::OnSizeOnScreenCommitted)*/
+		];
+
+	MaterialMergeGroup.AddWidgetRow()
+		.NameContent()
+		[
+			SNew(STextBlock)
+			.Font( IDetailLayoutBuilder::GetDetailFont() )
+			.Text(LOCTEXT("MaterialLOD_Height", "Height"))
+		]
+	.ValueContent()
+		[
+			SNew(SSpinBox<int32>)
+			.Font( IDetailLayoutBuilder::GetDetailFont() )
+			.MinValue(64)
+			.MaxValue(8096)
+			/*.Value(this, &FMeshReductionSettingsLayout::GetSizeOnScreen)
+			.OnValueChanged(this, &FMeshReductionSettingsLayout::OnSizeOnScreenChanged)
+			.OnValueCommitted(this, &FMeshReductionSettingsLayout::OnSizeOnScreenCommitted)*/
+		];
+
+	MaterialMergeGroup.AddWidgetRow()
+		.NameContent()
+		[
+			SNew(STextBlock)
+			.Font( IDetailLayoutBuilder::GetDetailFont() )
+			.Text(LOCTEXT("MaterialLOD_GutterSpace", "Gutter Space"))
+		]
+	.ValueContent()
+		[
+			SNew(SSpinBox<int32>)
+			.Font( IDetailLayoutBuilder::GetDetailFont() )
+			.MinValue(0)
+			.MaxValue(10)
+			/*.Value(this, &FMeshReductionSettingsLayout::GetSizeOnScreen)
+			.OnValueChanged(this, &FMeshReductionSettingsLayout::OnSizeOnScreenChanged)
+			.OnValueCommitted(this, &FMeshReductionSettingsLayout::OnSizeOnScreenCommitted)*/
+		];
+
+	MaterialMergeGroup.AddWidgetRow()
+		.NameContent()
+		[
+			SNew(STextBlock)
+			.Font( IDetailLayoutBuilder::GetDetailFont() )
+			.Text(LOCTEXT("MaterialLOD_MaximumStretch", "Maximum Stretch"))
+		]
+	.ValueContent()
+		[
+			SNew(SSpinBox<float>)
+			.Font( IDetailLayoutBuilder::GetDetailFont() )
+			.MinValue(0.0f)
+			.MaxValue(1.0f)
+			/*.Value(this, &FMeshReductionSettingsLayout::GetSizeOnScreen)
+			.OnValueChanged(this, &FMeshReductionSettingsLayout::OnSizeOnScreenChanged)
+			.OnValueCommitted(this, &FMeshReductionSettingsLayout::OnSizeOnScreenCommitted)*/
+		];
+}
+
+ECheckBoxState FMeshReductionSettingsLayout::IsMaterialLODChecked() const
+{
+	return MaterialLODSettings.bActive ? ECheckBoxState::Checked: ECheckBoxState::Unchecked;
+}
+
+void FMeshReductionSettingsLayout::OnMaterialLODChanged(ECheckBoxState NewValue)
+{
+	MaterialLODSettings.bActive = (NewValue == ECheckBoxState::Checked);
+}  
+
+ECheckBoxState FMeshReductionSettingsLayout::IsForceBuildChecked() const
+{
+	return bForceBuild ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
+}
+
+void FMeshReductionSettingsLayout::OnForceBuildChanged(ECheckBoxState NewValue)
+{
+	bForceBuild = (NewValue == ECheckBoxState::Checked);
+}
+
+bool FMeshReductionSettingsLayout::IsForceBuild() const
+{
+	return bForceBuild;
+}
+//@third party code END SIMPLYGON
 
 const FMeshReductionSettings& FMeshReductionSettingsLayout::GetSettings() const
 {
@@ -1075,12 +1483,23 @@ float FMeshReductionSettingsLayout::GetWeldingThreshold() const
 
 ECheckBoxState FMeshReductionSettingsLayout::ShouldRecalculateNormals() const
 {
+	//@third party code BEGIN SIMPLYGON 
+	if (ReductionSettings.bActive)
+	{
 	return ReductionSettings.bRecalculateNormals ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
+	}
+	return RemeshingSettings.bRecalculateNormals ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;  
+	//@third party code END SIMPLYGON
 }
 
 float FMeshReductionSettingsLayout::GetHardAngleThreshold() const
 {
+	//@third party code BEGIN SIMPLYGON 
+	if(ReductionSettings.bActive)
 	return ReductionSettings.HardAngleThreshold;
+
+	return RemeshingSettings.HardAngleThreshold;  
+	//@third party code END SIMPLYGON
 }
 
 void FMeshReductionSettingsLayout::OnPercentTrianglesChanged(float NewValue)
@@ -1129,7 +1548,7 @@ void FMeshReductionSettingsLayout::OnWeldingThresholdCommitted(float NewValue, E
 void FMeshReductionSettingsLayout::OnRecalculateNormalsChanged(ECheckBoxState NewValue)
 {
 	const bool bRecalculateNormals = NewValue == ECheckBoxState::Checked;
-	if (ReductionSettings.bRecalculateNormals != bRecalculateNormals)
+	if (ReductionSettings.bRecalculateNormals != bRecalculateNormals && ReductionSettings.bActive)
 	{
 		if (FEngineAnalytics::IsAvailable())
 		{
@@ -1137,11 +1556,31 @@ void FMeshReductionSettingsLayout::OnRecalculateNormalsChanged(ECheckBoxState Ne
 		}
 		ReductionSettings.bRecalculateNormals = bRecalculateNormals;
 	}
+
+	//@third party code BEGIN SIMPLYGON 
+	if (RemeshingSettings.bRecalculateNormals != bRecalculateNormals && RemeshingSettings.bActive)
+	{
+		if (FEngineAnalytics::IsAvailable())
+		{
+			FEngineAnalytics::GetProvider().RecordEvent(TEXT("Editor.Usage.StaticMesh.RemeshingSettings"), TEXT("bRecalculateNormals"), bRecalculateNormals ? TEXT("True") : TEXT("False"));
+		}
+		RemeshingSettings.bRecalculateNormals = bRecalculateNormals;
+	}  
+	//@third party code END SIMPLYGON
 }
 
 void FMeshReductionSettingsLayout::OnHardAngleThresholdChanged(float NewValue)
 {
+	//@third party code BEGIN SIMPLYGON 
+	if(ReductionSettings.bActive)
+	{
 	ReductionSettings.HardAngleThreshold = NewValue;
+	}
+	else //Remeshing
+	{
+		RemeshingSettings.HardAngleThreshold = NewValue;
+	}  
+	//@third party code END SIMPLYGON
 }
 
 void FMeshReductionSettingsLayout::OnHardAngleThresholdCommitted(float NewValue, ETextCommit::Type TextCommitType)
@@ -1165,6 +1604,21 @@ void FMeshReductionSettingsLayout::OnSilhouetteImportanceChanged(TSharedPtr<FStr
 		ReductionSettings.SilhouetteImportance = SilhouetteImportance;
 	}
 }
+
+//@third party code BEGIN SIMPLYGON
+void FMeshReductionSettingsLayout::OnVertexColorImportanceChanged(TSharedPtr<FString> NewValue, ESelectInfo::Type SelectInfo)
+{
+	const EMeshFeatureImportance::Type VertexColorImportance = (EMeshFeatureImportance::Type)ImportanceOptions.Find(NewValue);
+	if (ReductionSettings.VertexColorImportance != VertexColorImportance)
+	{
+		if (FEngineAnalytics::IsAvailable())
+		{
+			FEngineAnalytics::GetProvider().RecordEvent(TEXT("Editor.Usage.StaticMesh.ReductionSettings"), TEXT("VertexColorImportance"), *NewValue.Get());
+		}
+		ReductionSettings.VertexColorImportance = VertexColorImportance;
+	}
+}
+//@third party code END SIMPLYGON
 
 void FMeshReductionSettingsLayout::OnTextureImportanceChanged(TSharedPtr<FString> NewValue, ESelectInfo::Type SelectInfo)
 {
@@ -1191,6 +1645,38 @@ void FMeshReductionSettingsLayout::OnShadingImportanceChanged(TSharedPtr<FString
 		ReductionSettings.ShadingImportance = ShadingImportance;
 	}
 }
+
+//@third party code BEGIN SIMPLYGON
+const FSimplygonRemeshingSettings& FMeshReductionSettingsLayout::GetRemeshingSettings() const
+{
+	return RemeshingSettings;
+}
+
+void FMeshReductionSettingsLayout::UpdateSettings(const FSimplygonRemeshingSettings& InSettings)
+{
+	RemeshingSettings = InSettings;
+}
+
+//Size On Screen
+int32 FMeshReductionSettingsLayout::GetSizeOnScreen() const
+{
+	return RemeshingSettings.ScreenSize;
+}
+void FMeshReductionSettingsLayout::OnSizeOnScreenChanged(int32 NewValue)
+{
+	RemeshingSettings.ScreenSize = NewValue;
+}
+void FMeshReductionSettingsLayout::OnSizeOnScreenCommitted(int32 NewValue, ETextCommit::Type TextCommitType)
+{
+	if (FEngineAnalytics::IsAvailable())
+	{
+		FEngineAnalytics::GetProvider().RecordEvent(TEXT("Editor.Usage.StaticMesh.RemeshingSettings"), TEXT("SizeOnScreen"), FString::Printf(TEXT("f"), NewValue));
+	}
+	OnSizeOnScreenChanged(NewValue);
+}
+
+//@third party code END SIMPLYGON
+
 
 FMeshSectionSettingsLayout::~FMeshSectionSettingsLayout()
 {
@@ -1415,6 +1901,130 @@ void FMeshSectionSettingsLayout::CallPostEditChange(UProperty* PropertyChanged/*
 	StaticMeshEditor.RefreshViewport();
 }
 
+//@third party code BEGIN SIMPLYGON
+
+EVisibility FMeshReductionSettingsLayout::IsReductionSetting() const
+{
+	return ReductionSettings.bActive ? EVisibility::Visible : EVisibility::Collapsed;
+}
+
+EVisibility FMeshReductionSettingsLayout::IsRemeshingSetting() const
+{
+	return RemeshingSettings.bActive ? EVisibility::Visible : EVisibility::Collapsed;
+}
+
+void FMeshReductionSettingsLayout::OnLODTypeChanged(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo)
+{
+	const ESimplygonLODType::Type LODType = (ESimplygonLODType::Type)(LODTypeOptions.Find(NewSelection));
+	bool bReduction = LODType == ESimplygonLODType::Reduction ? true : false;
+	ReductionSettings.bActive = bReduction;
+	RemeshingSettings.bActive = !bReduction;
+
+	//Material baker has settings that is only available for reduction.
+	//Update material baker settings so that we get those settings.
+	bool bExtendReduction = ReductionSettings.bActive;
+	MaterialLODSettingsWidget->SetAllowReuseUVs(bReduction);
+	MaterialLODSettingsWidget->SetAllowMultiMaterial(bReduction);
+//	MaterialLODSettingsWidget->UpdateSettings(bReduction ? ReductionSettings.MaterialLODSettings : RemeshingSettings.MaterialLODSettings);
+	MaterialLODSettingsWidget->SetForceActive(!bReduction);
+}
+
+ECheckBoxState FMeshReductionSettingsLayout::IsVisibilityAidedChecked() const
+{
+	return ReductionSettings.bVisibilityAided ? ECheckBoxState::Checked: ECheckBoxState::Unchecked;
+}
+
+void FMeshReductionSettingsLayout::OnVisibilityAidedChanged(ECheckBoxState NewValue)
+{
+	ReductionSettings.bVisibilityAided = (NewValue == ECheckBoxState::Checked);
+}
+
+bool FMeshReductionSettingsLayout::IsVisibilityAidedEnabled() const
+{
+	if(ReductionSettings.bVisibilityAided)
+	{
+		return true;
+	}
+	return false;
+}
+
+ECheckBoxState FMeshReductionSettingsLayout::IsCullOccludedChecked() const
+{
+	return ReductionSettings.bCullOccluded ? ECheckBoxState::Checked: ECheckBoxState::Unchecked;
+}
+
+void FMeshReductionSettingsLayout::OnCullOccludedChanged(ECheckBoxState NewValue)
+{
+	ReductionSettings.bCullOccluded = (NewValue == ECheckBoxState::Checked);
+}
+
+void FMeshReductionSettingsLayout::OnAggressivenessChanged(TSharedPtr<FString> NewValue, ESelectInfo::Type SelectInfo)
+{
+	const EMeshFeatureImportance::Type VisibilityAgressiveness = (EMeshFeatureImportance::Type)(AggressivenessOptions.Find(NewValue));
+	if (ReductionSettings.VisibilityAggressiveness != VisibilityAgressiveness)
+	{
+		if (FEngineAnalytics::IsAvailable())
+		{
+			FEngineAnalytics::GetProvider().RecordEvent(TEXT("Editor.Usage.StaticMesh.ReductionSettings"), TEXT("VisibilityAgressiveness"), *NewValue.Get());
+		}
+		ReductionSettings.VisibilityAggressiveness = VisibilityAgressiveness;
+	}
+}
+
+ECheckBoxState FMeshReductionSettingsLayout::IsKeepSymmetryChecked() const
+{
+	return ReductionSettings.bKeepSymmetry ? ECheckBoxState::Checked: ECheckBoxState::Unchecked;
+}
+
+void FMeshReductionSettingsLayout::OnKeepSymmetryChanged(ECheckBoxState NewValue)
+{
+	ReductionSettings.bKeepSymmetry = (NewValue == ECheckBoxState::Checked);
+}
+
+bool FMeshReductionSettingsLayout::RecalculateNormalsEnabled() const
+{
+	//@third party code BEGIN SIMPLYGON 
+	if(ReductionSettings.bRecalculateNormals && ReductionSettings.bActive)
+	{
+		return true;
+	}
+	else if(RemeshingSettings.bRecalculateNormals && RemeshingSettings.bActive)
+	{
+		return true;
+	}
+
+	return false;  
+	//@third party code END SIMPLYGON
+}
+
+void FMeshReductionSettingsLayout::UpdateBaseLODModelOptions()
+{
+	BaseLODModelOptions.Empty();
+	BaseLODModelOptions.Add( MakeShareable( new FString( FString(LOCTEXT("LODChainModel_BaseLOD", "Base LOD").ToString()) ) ) );
+
+	for (int32 LODModelIndex = 1; LODModelIndex < this->LODIndex; LODModelIndex++)
+	{
+		BaseLODModelOptions.Add( MakeShareable( new FString( FString::Printf(*LOCTEXT("LODChainModel_ID", "LOD %d").ToString(), LODModelIndex ) ) ) );
+	}
+
+	if (BaseLODModelCombo.IsValid())
+	{		
+		BaseLODModelCombo->RefreshOptions();
+		BaseLODModelCombo->SetSelectedItem(BaseLODModelOptions[ReductionSettings.BaseLODModel]);
+	}
+}
+
+void FMeshReductionSettingsLayout::OnBaseLODModelChanged(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo)
+{
+	ReductionSettings.BaseLODModel = BaseLODModelOptions.Find(BaseLODModelCombo->GetSelectedItem());
+}
+
+const FSimplygonMaterialLODSettings& FMeshReductionSettingsLayout::GetMaterialLODSettingsFromWidget() const
+{
+	return MaterialLODSettingsWidget->GetSettings();
+}
+//@third party code END SIMPLYGON
+
 /////////////////////////////////
 // FLevelOfDetailSettingsLayout
 /////////////////////////////////
@@ -1439,6 +2049,16 @@ FLevelOfDetailSettingsLayout::FLevelOfDetailSettingsLayout( FStaticMeshEditor& I
 	}
 
 	LODCount = StaticMeshEditor.GetStaticMesh()->GetNumLODs();
+
+	//@third party code BEGIN SIMPLYGON
+	LightMapResOptions.Add(MakeShareable(new FString(TEXT("Use Default"))));
+	LightMapResOptions.Add(MakeShareable(new FString(TEXT("32"))));
+	LightMapResOptions.Add(MakeShareable(new FString(TEXT("64"))));
+	LightMapResOptions.Add(MakeShareable(new FString(TEXT("128"))));
+	LightMapResOptions.Add(MakeShareable(new FString(TEXT("256"))));
+	LightMapResOptions.Add(MakeShareable(new FString(TEXT("512"))));
+	LightMapResOptions.Add(MakeShareable(new FString(TEXT("1024"))));
+	//@third party code END SIMPLYGON
 
 	UpdateLODNames();
 }
@@ -1604,7 +2224,7 @@ void FLevelOfDetailSettingsLayout::AddLODLevelCategories( IDetailLayoutBuilder& 
 		{
 			if (IsAutoMeshReductionAvailable())
 			{
-				ReductionSettingsWidgets[LODIndex] = MakeShareable( new FMeshReductionSettingsLayout( AsShared() ) );
+				ReductionSettingsWidgets[LODIndex] = MakeShareable( new FMeshReductionSettingsLayout( AsShared(), LODIndex ) );
 			}
 
 			if (LODIndex < StaticMesh->SourceModels.Num())
@@ -1613,12 +2233,18 @@ void FLevelOfDetailSettingsLayout::AddLODLevelCategories( IDetailLayoutBuilder& 
 				if (ReductionSettingsWidgets[LODIndex].IsValid())
 				{
 					ReductionSettingsWidgets[LODIndex]->UpdateSettings(SrcModel.ReductionSettings);
+					//@third party code BEGIN SIMPLYGON 
+					ReductionSettingsWidgets[LODIndex]->UpdateSettings(SrcModel.RemeshingSettings);  
+					//@third party code END SIMPLYGON
 				}
 
-				if (SrcModel.RawMeshBulkData->IsEmpty() == false)
+				//@third party code BEGIN SIMPLYGON 
+				if (SrcModel.RawMeshBulkData->IsEmpty() == false && SrcModel.RawMeshBulkData->IsGeneratedWithSimplygon() == false)
+				//@third party code END SIMPLYGON
 				{
 					BuildSettingsWidgets[LODIndex] = MakeShareable( new FMeshBuildSettingsLayout( AsShared() ) );
 					BuildSettingsWidgets[LODIndex]->UpdateSettings(SrcModel.BuildSettings);
+
 				}
 
 				LODScreenSizes[LODIndex] = SrcModel.ScreenSize;
@@ -1704,6 +2330,26 @@ void FLevelOfDetailSettingsLayout::AddLODLevelCategories( IDetailLayoutBuilder& 
 				.OnValueCommitted(this, &FLevelOfDetailSettingsLayout::OnLODScreenSizeCommitted, LODIndex)
 				.IsEnabled(this, &FLevelOfDetailSettingsLayout::CanChangeLODScreenSize)
 			];
+
+			//@third party code BEGIN SIMPLYGON
+			FStaticMeshSourceModel& SrcModel = StaticMesh->SourceModels[LODIndex];
+			LODCategory.AddCustomRow(( LOCTEXT("LightMapResRow", "LightMapRes")))
+			.NameContent()
+			[
+				SNew(STextBlock)
+				.Font(IDetailLayoutBuilder::GetDetailFont())
+				.Text(LOCTEXT("LightMapResName", "LightMap Resolution"))
+			]
+			.ValueContent()
+			[
+				SNew(STextComboBox)
+				//.Font( IDetailLayoutBuilder::GetDetailFont() )
+				.ContentPadding(0)
+				.OptionsSource(&LightMapResOptions)
+				.InitiallySelectedItem(GetLightMapResString(SrcModel.OverriddenLightMapRes))
+				.OnSelectionChanged(this, &FLevelOfDetailSettingsLayout::OnLightMapResChanged, LODIndex)
+			];
+			//@third party code END SIMPLYGON
 
 			if (BuildSettingsWidgets[LODIndex].IsValid())
 			{
@@ -1958,6 +2604,8 @@ bool FLevelOfDetailSettingsLayout::IsApplyNeeded() const
 	for (int32 LODIndex = 0; LODIndex < LODCount; ++LODIndex)
 	{
 		FStaticMeshSourceModel& SrcModel = StaticMesh->SourceModels[LODIndex];
+
+		
 		if (BuildSettingsWidgets[LODIndex].IsValid()
 			&& SrcModel.BuildSettings != BuildSettingsWidgets[LODIndex]->GetSettings())
 		{
@@ -1967,7 +2615,29 @@ bool FLevelOfDetailSettingsLayout::IsApplyNeeded() const
 			&& SrcModel.ReductionSettings != ReductionSettingsWidgets[LODIndex]->GetSettings())
 		{
 			return true;
+		}	
+
+		//@third party code BEGIN SIMPLYGON
+		if (ReductionSettingsWidgets[LODIndex].IsValid())
+		{
+			auto ReductionSettingsWidget = ReductionSettingsWidgets[LODIndex];
+
+			if (SrcModel.RemeshingSettings != ReductionSettingsWidget->GetRemeshingSettings())
+			{
+				return true;
+			}
+
+			if (SrcModel.ReductionSettings.MaterialLODSettings != ReductionSettingsWidget->GetMaterialLODSettingsFromWidget())
+			{
+				return true;
+			}
+
+			if (ReductionSettingsWidget->IsForceBuild())
+			{
+				return true;
+			}
 		}
+		//@third party code END SIMPLYGON
 	}
 
 	return false;
@@ -1985,6 +2655,12 @@ void FLevelOfDetailSettingsLayout::ApplyChanges()
 	Args.Add( TEXT("StaticMeshName"), FText::FromString( StaticMesh->GetName() ) );
 	GWarn->BeginSlowTask( FText::Format( LOCTEXT("ApplyLODChanges", "Applying changes to {StaticMeshName}..."), Args ), true );
 	FlushRenderingCommands();
+	
+	//@third party code BEGIN SIMPLYGON 
+	//Cache old lod count
+	int32 OldLODNum = StaticMesh->SourceModels.Num();
+	bool bMaterialsBaked = false;
+	//@third party code END SIMPLYGON
 
 	StaticMesh->Modify();
 	if (StaticMesh->SourceModels.Num() > LODCount)
@@ -2007,9 +2683,33 @@ void FLevelOfDetailSettingsLayout::ApplyChanges()
 		}
 		if (ReductionSettingsWidgets[LODIndex].IsValid())
 		{
-			SrcModel.ReductionSettings = ReductionSettingsWidgets[LODIndex]->GetSettings();
-		}
+			//@third party code BEGIN SIMPLYGON 
+			auto ReductionSettingsWidget = ReductionSettingsWidgets[LODIndex];
 
+			FMeshReductionSettings OldReductionSettings = SrcModel.ReductionSettings;
+			SrcModel.ReductionSettings = ReductionSettingsWidget->GetSettings();
+			SrcModel.ReductionSettings.MaterialLODSettings = ReductionSettingsWidget->GetMaterialLODSettingsFromWidget();
+			
+			FSimplygonRemeshingSettings OldRemeshingSettings = SrcModel.RemeshingSettings;
+			SrcModel.RemeshingSettings = ReductionSettingsWidget->GetRemeshingSettings();
+			SrcModel.RemeshingSettings.MaterialLODSettings = ReductionSettingsWidget->GetMaterialLODSettingsFromWidget();
+			
+			bool bForceBuild = ReductionSettingsWidget->IsForceBuild();
+			if (SrcModel.ReductionSettings.bActive)
+			{
+				bForceBuild |= (OldReductionSettings != SrcModel.ReductionSettings);
+				bMaterialsBaked |= SrcModel.ReductionSettings.MaterialLODSettings.bActive;
+			}
+			else
+			{
+				bForceBuild |= (OldRemeshingSettings != SrcModel.RemeshingSettings);
+				bMaterialsBaked	|= SrcModel.RemeshingSettings.MaterialLODSettings.bActive;
+			}
+			// Mark special transient property in ReductionSettings to indicate that this LOD should be rebuilt.
+			SrcModel.ReductionSettings.bForceRebuild = bForceBuild;
+			//@third party code END SIMPLYGON		
+		}
+		
 		if (LODIndex == 0)
 		{
 			SrcModel.ScreenSize = 1.0f;
@@ -2028,8 +2728,79 @@ void FLevelOfDetailSettingsLayout::ApplyChanges()
 			}
 		}
 	}
+	//@third party code BEGIN SIMPLYGON
+///	if (bForceBuild)
+///	{
+///		// Remove this static mesh from DDC to force rebuild
+///		StaticMesh->MarkPlatformDataTransient();
+///	}
+///	//@third party code END SIMPLYGON
 	StaticMesh->PostEditChange();
 
+	//@third party code BEGIN SIMPLYGON 
+	//Simplygon bakes materials which sometimes need to be erased
+	//from the material array. Therefore we need to do a clean up.
+	bool bShouldCleanup = StaticMesh->SourceModels.Num() < OldLODNum;
+	if (bShouldCleanup)
+	{
+		FString BakedMaterialExt = FString::Printf(TEXT("_SgBakedMaterial_LOD")); //Should be a global in SimplygonUtilities
+		//Do clean up
+		int32 NewLODNum = StaticMesh->SourceModels.Num();
+		int32 Diff = OldLODNum - NewLODNum;
+		for (int32 LODIndex = Diff; LODIndex >= NewLODNum; --LODIndex)
+		{
+			FString LODMaterialExt = BakedMaterialExt;
+			LODMaterialExt.Append(FString::Printf(TEXT("%d"), LODIndex));
+			for (int32 MaterialIndex = 0; MaterialIndex < StaticMesh->Materials.Num(); ++MaterialIndex)
+			{
+				UMaterialInterface* Material = StaticMesh->Materials[MaterialIndex];
+				if (!Material)
+				{
+					StaticMesh->Materials.RemoveAt(MaterialIndex);
+					--MaterialIndex;
+					continue;
+				}
+
+				if (Material->GetName().Contains(LODMaterialExt))
+				{
+					StaticMesh->Materials.Remove(Material);
+					//Need to reset the info map by copying the information
+					//from LOD0 (base mesh). We only need the information for slot 0.
+					FMeshSectionInfo Info = StaticMesh->SectionInfoMap.Get(0, 0);
+					StaticMesh->SectionInfoMap.Set(LODIndex, 0, Info);
+				}
+			}
+		}
+	}
+
+	if (bMaterialsBaked)
+	{
+		// FPreviewScene sets all textures to be resident while scene exists. When Simplygon bakes new material,
+		// we should make new textures to be resident too, otherwise scene could appear blurry (with low-res mips).
+		// References:
+		//   FPreviewScene::AddComponent()
+		//   UMeshComponent::SetTextureForceResidentFlag()
+		for (int32 MaterialIndex = 0; MaterialIndex < StaticMesh->Materials.Num(); MaterialIndex++)
+		{
+			UMaterialInterface* Material = StaticMesh->Materials[MaterialIndex];
+			if (Material)
+			{
+				TArray<UTexture*> Textures;
+				Material->GetUsedTextures(Textures, EMaterialQualityLevel::Num, true, ERHIFeatureLevel::Num, true);
+				for (int32 i = 0; i < Textures.Num(); ++i)
+				{
+					const int32 CinematicTextureGroups = 0;
+					const float Seconds = -1.0f;
+					if (UTexture2D* Texture2D = Cast<UTexture2D>(Textures[i]))
+					{
+						Texture2D->SetForceMipLevelsToBeResident(Seconds, CinematicTextureGroups);
+						Texture2D->bForceMiplevelsToBeResident = true;
+					}
+				}
+			}
+		}
+	}
+	//@third party code END SIMPLYGON
 	GWarn->EndSlowTask();
 
 	StaticMeshEditor.RefreshTool();
@@ -2093,5 +2864,477 @@ FText FLevelOfDetailSettingsLayout::GetMinLODTooltip() const
 {
 	return LOCTEXT("MinLODTooltip", "The minimum LOD to use for rendering.  This can be overridden in components.");
 }
+
+//@third party code BEGIN SIMPLYGON 
+void FLevelOfDetailSettingsLayout::UpdateDetailsLayout()
+{
+	if(LODInfo.Num() > 0)
+	{
+		/*FMessageDialog::Open(
+		EAppMsgType::Ok,LOCTEXT("TEST", "Test"));*/
+
+		int32 NumberOfLODExcludingBaseMesh = LODInfo.Num();
+		int32 NumberOfLODsIncludingBaseMesh = LODInfo.Num() +1;
+
+		this->OnLODCountChanged(NumberOfLODsIncludingBaseMesh);	
+		
+		bool bIsApplyNeeded = IsApplyNeeded();
+
+		if(true)
+		{
+		
+			/*for(int32 Index=0; Index < NumberOfLODExcludingBaseMesh; Index++ )
+			{
+			if(LODInfo.Num() > 0)
+			{
+			if( LODInfo[Index]->bIsReduction && ReductionSettingsWidgets[Index].IsValid() )
+			{
+			ReductionSettingsWidgets[Index]->UpdateSettings(*LODInfo[Index]->ReductionSettings.Get());
+			}
+			else if( LODInfo[Index]->bIsRemeshing && ReductionSettingsWidgets[Index].IsValid())
+			{
+			ReductionSettingsWidgets[Index]->UpdateSettings(*LODInfo[Index]->RemeshingSettings.Get());
+			}
+			}
+
+			}*/
+
+			//OnApply();
+
+			UStaticMesh* StaticMesh = StaticMeshEditor.GetStaticMesh();
+			check(StaticMesh);
+
+			// Calling Begin and EndSlowTask are rather dangerous because they tick
+			// Slate. Call them here and flush rendering commands to be sure!.
+
+			FFormatNamedArguments Args;
+			Args.Add( TEXT("StaticMeshName"), FText::FromString( StaticMesh->GetName() ) );
+			GWarn->BeginSlowTask( FText::Format( LOCTEXT("ApplyLODChanges", "Applying changes to {StaticMeshName}..."), Args ), true );
+			FlushRenderingCommands();
+
+
+			StaticMesh->Modify();
+			if (StaticMesh->SourceModels.Num() > LODCount)
+			{
+				int32 NumToRemove = StaticMesh->SourceModels.Num() - LODCount;
+				StaticMesh->SourceModels.RemoveAt(LODCount, NumToRemove);
+			}
+			while (StaticMesh->SourceModels.Num() < LODCount)
+			{
+				new(StaticMesh->SourceModels) FStaticMeshSourceModel();
+			}
+			check(StaticMesh->SourceModels.Num() == LODCount);
+
+			for (int32 LODIndex = 1; LODIndex < LODCount; ++LODIndex)
+			{
+				FStaticMeshSourceModel& SrcModel = StaticMesh->SourceModels[LODIndex];
+
+				if( LODInfo[LODIndex-1]->bIsReduction )
+				{
+					SrcModel.ReductionSettings = *LODInfo[LODIndex-1]->ReductionSettings.Get();
+					SrcModel.ReductionSettings.MaterialLODSettings = (*LODInfo[LODIndex-1]->ReductionSettings.Get()).MaterialLODSettings;
+					SrcModel.ReductionSettings.MaterialLODSettings.ChannelsToCast = (*LODInfo[LODIndex - 1]->ReductionSettings.Get()).MaterialLODSettings.ChannelsToCast;
+									
+					SrcModel.RemeshingSettings.bActive = false;
+					/*if(SrcModel.ReductionSettings.MaterilLODSetting.bActive)
+					{
+						FMessageDialog::Open(
+							EAppMsgType::Ok,LOCTEXT("TEST", "Test"));
+					}*/
+					
+				}
+				else if( LODInfo[LODIndex-1]->bIsRemeshing)
+				{
+					SrcModel.RemeshingSettings = *LODInfo[LODIndex-1]->RemeshingSettings.Get();
+					SrcModel.ReductionSettings.bActive = false;
+					SrcModel.RemeshingSettings.MaterialLODSettings = (*LODInfo[LODIndex-1]->RemeshingSettings.Get()).MaterialLODSettings;
+					SrcModel.RemeshingSettings.MaterialLODSettings.ChannelsToCast = (*LODInfo[LODIndex - 1]->RemeshingSettings.Get()).MaterialLODSettings.ChannelsToCast;
+
+					/*if(SrcModel.RemeshingSettings.MaterialLOD.bActive)
+					{
+						FMessageDialog::Open(
+							EAppMsgType::Ok,LOCTEXT("TEST", "Test"));
+					}*/
+				}
+
+				
+			}
+			StaticMesh->PostEditChange();
+
+			GWarn->EndSlowTask();
+
+			//StaticMeshEditor.RefreshTool();
+
+			OnApply();
+		}
+
+		//StaticMeshEditor.RefreshTool();
+		
+		
+		
+		
+	}
+}
+
+void FLevelOfDetailSettingsLayout::SetLODInfoArray( TArray<TSharedPtr<FSimplygonSettingsLODInfo>>& InLODInfo )
+{
+	//LODInfo.Reset();
+	LODInfo.Reset(InLODInfo.Num()+1);
+	
+	for(int32 Index=0; Index < InLODInfo.Num(); Index++)
+	{
+		if(LODInfo.IsValidIndex(Index))
+			LODInfo[Index] = InLODInfo[Index];
+		else
+			LODInfo.Add( InLODInfo[Index]);
+	}
+	
+}
+
+void FLevelOfDetailSettingsLayout::OnLightMapResChanged(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo, int32 LODIndex)
+{
+	int32 OptionIndex = LightMapResOptions.Find(NewSelection);
+	int32 LightMapRes = 0;
+	if (OptionIndex > 0)
+	{
+		LightMapRes = 1 << (OptionIndex + 4);
+	}
+
+	UStaticMesh* StaticMesh = StaticMeshEditor.GetStaticMesh();
+	check(StaticMesh->SourceModels.IsValidIndex(LODIndex));
+	FStaticMeshSourceModel& SrcModel = StaticMesh->SourceModels[LODIndex];
+	SrcModel.OverriddenLightMapRes = LightMapRes;
+	StaticMesh->Modify();
+}
+
+TSharedPtr<FString> FLevelOfDetailSettingsLayout::GetLightMapResString(int32 LightMapRes)
+{
+	if (LightMapRes < 32 || (LightMapRes & (LightMapRes - 1)) != 0)
+	{
+		return LightMapResOptions[0];
+	}
+	int32 OptionIndex = 1;
+	LightMapRes /= 32;
+	while (LightMapRes > 1)
+	{
+		OptionIndex++;
+		LightMapRes >>= 1;
+	}
+	if (LightMapResOptions.IsValidIndex(OptionIndex))
+	{
+		return LightMapResOptions[OptionIndex];
+	}
+	return LightMapResOptions[0];
+}
+
+/////////////////////////////////
+// SSimplygonGenerateUniqueUVs
+/////////////////////////////////
+BEGIN_SLATE_FUNCTION_BUILD_OPTIMIZATION
+	void SSimplygonGenerateUniqueUVs::Construct(const FArguments& InArgs)
+{
+	StaticMeshEditorPtr = InArgs._StaticMeshEditorPtr;
+
+	RefreshTool();
+
+	MaxStretching = 0.8f;
+	TargetTextureSize = 512.0f;
+	GutterSpace = 1.0f;
+
+	this->ChildSlot
+		[
+			SNew(SVerticalBox)
+			+SVerticalBox::Slot()
+			.AutoHeight()
+			.Padding( 0.0f, 8.0f, 16.0f, 0.0f)
+			[
+				SNew(SHorizontalBox)
+				+SHorizontalBox::Slot()
+				.VAlign(VAlign_Center)
+				.FillWidth(3.0f)
+				[
+					SNew(STextBlock)
+					.Text( LOCTEXT("UVChannelSaveSelection", "UV channel to save results to:") )
+				]
+
+				+SHorizontalBox::Slot()
+					.HAlign(HAlign_Center)
+					.FillWidth(1.0f)
+					[
+						SAssignNew(UVChannelCombo, STextComboBox)
+						.OptionsSource(&UVChannels)
+						.InitiallySelectedItem(UVChannels.Num() > 1? UVChannels[1] : UVChannels[0])
+					]
+
+			]
+
+			/*---> Settings */
+			+SVerticalBox::Slot()
+				.AutoHeight()
+				.Padding( 0.0f, 8.0f, 0.0f, 0.0f)
+				[
+					SNew(STextBlock)
+					.Text( LOCTEXT("ParameterizerSettings", "Parameterizer Settings:") )
+				]
+
+			//Maximum Stretch
+			+SVerticalBox::Slot()
+				.AutoHeight()
+				.Padding( 8.0f, 4.0f, 16.0f, 0.0f)
+				[
+					SNew(SHorizontalBox)
+					+SHorizontalBox::Slot()
+					.VAlign(VAlign_Center)
+					.FillWidth(3.0f)
+					[
+						SNew(STextBlock)
+						.Text( LOCTEXT("MaxStretching", "Maximum stretch") )
+					]
+
+					+SHorizontalBox::Slot()
+						.VAlign(VAlign_Center)
+						.FillWidth(1.0f)
+						[
+							SNew(SSpinBox<float>)
+							.MinValue(0.0f)
+							.MaxValue(1.0f)
+							.Value(0.8f)
+							.OnValueCommitted( this, &SSimplygonGenerateUniqueUVs::OnMaxStretchingCommitted )
+							.OnValueChanged( this, &SSimplygonGenerateUniqueUVs::OnMaxStretchingChanged )
+						]
+				]
+
+			+SVerticalBox::Slot()
+				.AutoHeight()
+				.Padding( 8.0f, 8.0f, 16.0f, 0.0f)
+				[
+					SNew(SHorizontalBox)
+					+SHorizontalBox::Slot()
+					.VAlign(VAlign_Center)
+					.FillWidth(3.0f)
+					[
+						SNew(STextBlock)
+						.Text( LOCTEXT("TargetTextureSize", "Target Texture Size") )
+					]
+
+					+SHorizontalBox::Slot()
+						.VAlign(VAlign_Center)
+						.FillWidth(1.0f)
+						[
+							SNew(SSpinBox<float>)
+							.MinValue(0.0f)
+							.MaxValue(8192.0f)
+							.Value(512.0f)
+							.OnValueCommitted( this, &SSimplygonGenerateUniqueUVs::OnTextureSizeCommitted )
+							.OnValueChanged( this, &SSimplygonGenerateUniqueUVs::OnTextureSizeChanged )
+						]
+				]
+
+			+SVerticalBox::Slot()
+				.AutoHeight()
+				.Padding( 8.0f, 8.0f, 16.0f, 0.0f)
+				[
+					SNew(SHorizontalBox)
+					+SHorizontalBox::Slot()
+					.VAlign(VAlign_Center)
+					.FillWidth(3.0f)
+					[
+						SNew(STextBlock)
+						.Text( LOCTEXT("GutterSpace", "Gutter Space") )
+					]
+
+					+SHorizontalBox::Slot()
+						.VAlign(VAlign_Center)
+						.FillWidth(1.0f)
+						[
+							SNew(SSpinBox<float>)
+							.MinValue(0.0f)
+							.MaxValue(20.0f)
+							.Value(1.0f)
+							.OnValueCommitted( this, &SSimplygonGenerateUniqueUVs::OnGutterSpaceCommitted )
+							.OnValueChanged( this, &SSimplygonGenerateUniqueUVs::OnGutterSpaceChanged )
+						]
+				]
+			/* Settings <---*/
+
+			+SVerticalBox::Slot()
+				.AutoHeight()
+				.HAlign(HAlign_Center)
+				.Padding( 0.0f, 8.0f, 0.0f, 0.0f)
+				[
+					SNew(SButton)
+					.Text( LOCTEXT("Apply", "Apply") )
+					.OnClicked( this, &SSimplygonGenerateUniqueUVs::OnApply )
+				]
+		];
+}
+END_SLATE_FUNCTION_BUILD_OPTIMIZATION
+
+	SSimplygonGenerateUniqueUVs::~SSimplygonGenerateUniqueUVs()
+{
+
+}
+
+FReply SSimplygonGenerateUniqueUVs::OnApply()
+{
+	//todo: generate unique UVs per LOD
+	int32 ChosenLODIndex = 0;
+	int32 ChosenUVChannel = UVChannels.Find(UVChannelCombo->GetSelectedItem());
+
+	UStaticMesh* StaticMesh = StaticMeshEditorPtr.Pin()->GetStaticMesh();
+
+	if (StaticMesh->SourceModels.IsValidIndex(ChosenLODIndex)
+		&& !StaticMesh->SourceModels[ChosenLODIndex].RawMeshBulkData->IsEmpty() && !StaticMesh->SourceModels[ChosenLODIndex].RawMeshBulkData->IsGeneratedWithSimplygon())
+	{
+		bool bStatus = false;
+		uint32 Uint32TextureSize = (uint32)TargetTextureSize;
+		uint32 Uint32GutterSpace = (uint32)GutterSpace;
+
+		FText Error;
+		GWarn->BeginSlowTask( NSLOCTEXT("UnrealEd", "GenerateUVsProgressText", "Simplygon is generating unique UVs..."), true );
+		{
+			// Detach all instances of the static mesh while generating the UVs, then reattach them.
+			FStaticMeshComponentRecreateRenderStateContext RecreateRenderStateContext(StaticMeshEditorPtr.Pin()->GetStaticMesh());
+
+			bool bNeedsBuild = true;
+			FRawMesh RawMesh;
+			for (int32 LODIndex = 0; LODIndex < StaticMesh->SourceModels.Num(); ++LODIndex)
+			{
+				RawMesh.Empty();
+				if (LODIndex == 0)
+				{
+					StaticMesh->SourceModels[LODIndex].RawMeshBulkData->LoadRawMesh(RawMesh);
+
+					//call the utility helper with the user supplied parameters
+					ISimplygonUtilities& SimplygonUtilities = FModuleManager::Get().LoadModuleChecked<ISimplygonUtilities>("SimplygonUtilities");
+					bStatus = SimplygonUtilities.SimplygonGenerateUniqueUVs(RawMesh, ChosenUVChannel, MaxStretching, Uint32TextureSize, Uint32TextureSize, Uint32GutterSpace/*, Error*/);
+
+					if (!bStatus)
+					{
+						bNeedsBuild = false;
+						break;
+					}
+
+					StaticMesh->SourceModels[LODIndex].RawMeshBulkData->SaveRawMesh(RawMesh);
+					StaticMesh->SourceModels[LODIndex].ReductionSettings.bForceRebuild = true;
+				}
+				else if (StaticMesh->SourceModels[LODIndex].RemeshingSettings.bActive)
+				{
+					//Copy texcoords from 0 to destination
+					StaticMesh->SourceModels[LODIndex].RawMeshBulkData->LoadRawMesh(RawMesh);
+					RawMesh.WedgeTexCoords[ChosenUVChannel].Empty();
+					RawMesh.WedgeTexCoords[ChosenUVChannel].Append(RawMesh.WedgeTexCoords[0]);
+					StaticMesh->SourceModels[LODIndex].RawMeshBulkData->SaveRawMesh(RawMesh);
+					StaticMesh->SourceModels[LODIndex].ReductionSettings.bForceRebuild = true;
+
+				}
+			}
+			
+			if (bNeedsBuild)
+			{
+				StaticMesh->Build();
+			}
+			
+			
+		}
+		GWarn->EndSlowTask();
+
+		FText StatusMessage;
+		if(bStatus)
+		{
+			FNumberFormattingOptions NumberOptions;
+			NumberOptions.MinimumFractionalDigits = 2;
+			NumberOptions.MaximumFractionalDigits = 2;
+
+			FFormatNamedArguments Args;
+			//Args.Add( TEXT("MaxCharts"), Uint32MaxCharts );
+			//Args.Add( TEXT("MaxStretching"), FText::AsPercent( MaxStretching, &NumberOptions ) );
+			StatusMessage = FText::Format( NSLOCTEXT("SimplygonGenerateUVsWindow", "SimplygonGenerateUniqueUVs_UVGenerationSuccessful", "Simplygon Finished generating UVs"), Args);
+		}
+		else if (!Error.IsEmpty())
+		{
+			StatusMessage = Error;
+		}
+		else
+		{
+			StatusMessage = NSLOCTEXT("SimplygonGenerateUVsWindow", "SimplygonGenerateUniqueUVs_UVGenerationFailed", "Mesh UV generation failed.");
+		}
+
+		FNotificationInfo NotificationInfo( StatusMessage );
+		NotificationInfo.ExpireDuration = 3.0f;
+
+		TSharedPtr<SNotificationItem> NotificationItem = FSlateNotificationManager::Get().AddNotification(NotificationInfo);
+		if ( NotificationItem.IsValid() )
+		{
+			NotificationItem->SetCompletionState(bStatus ? SNotificationItem::CS_Success : SNotificationItem::CS_Fail);
+		}
+	}
+
+	StaticMeshEditorPtr.Pin()->RefreshTool();
+	RefreshTool();
+
+	return FReply::Handled();
+}
+
+void SSimplygonGenerateUniqueUVs::OnMaxStretchingChanged(float InValue)
+{
+	MaxStretching = InValue;
+}
+
+void SSimplygonGenerateUniqueUVs::OnMaxStretchingCommitted(float InValue, ETextCommit::Type CommitInfo)
+{
+	OnMaxStretchingChanged(InValue);
+}
+
+void SSimplygonGenerateUniqueUVs::OnTextureSizeChanged(float InValue)
+{
+	TargetTextureSize= InValue;
+}
+
+void SSimplygonGenerateUniqueUVs::OnTextureSizeCommitted(float InValue, ETextCommit::Type CommitInfo)
+{
+	OnMaxStretchingChanged(InValue);
+}
+
+void SSimplygonGenerateUniqueUVs::OnGutterSpaceChanged(float InValue)
+{
+	GutterSpace = InValue;
+}
+
+void SSimplygonGenerateUniqueUVs::OnGutterSpaceCommitted(float InValue, ETextCommit::Type CommitInfo)
+{
+	OnMaxStretchingChanged(InValue);
+}
+
+void SSimplygonGenerateUniqueUVs::RefreshUVChannelList()
+{
+	UStaticMesh* StaticMesh = StaticMeshEditorPtr.Pin()->GetStaticMesh();
+
+	// Fill out the UV channels combo.
+	UVChannels.Empty();
+	for(int32 UVChannelID = 0; UVChannelID < FMath::Min(StaticMeshEditorPtr.Pin()->GetNumUVChannels() + 1, (int32)MAX_STATIC_TEXCOORDS); ++UVChannelID)
+	{
+		UVChannels.Add( MakeShareable( new FString (FText::Format( LOCTEXT("UVChannel_ID", "UV Channel {0}"), FText::AsNumber( UVChannelID ) ).ToString() ) ) );
+	}
+
+	if(UVChannelCombo.IsValid())
+	{
+		if(UVChannels.Num() > 1)
+		{
+			UVChannelCombo->SetSelectedItem(UVChannels[1]);
+		}
+		else
+		{
+			UVChannelCombo->SetSelectedItem(UVChannels[0]);
+		}
+	}
+
+}
+
+void SSimplygonGenerateUniqueUVs::RefreshTool()
+{
+	RefreshUVChannelList();
+}
+//@third party code END SIMPLYGON
 
 #undef LOCTEXT_NAMESPACE

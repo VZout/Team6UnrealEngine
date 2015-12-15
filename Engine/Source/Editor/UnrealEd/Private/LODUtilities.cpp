@@ -71,7 +71,7 @@ void FLODUtilities::RemoveLOD(FSkeletalMeshUpdateContext& UpdateContext, int32 D
 	}
 }
 
-void FLODUtilities::SimplifySkeletalMeshLOD( USkeletalMesh* SkeletalMesh, const FSkeletalMeshOptimizationSettings& InSetting, int32 DesiredLOD )
+void FLODUtilities::SimplifySkeletalMeshLOD(USkeletalMesh* SkeletalMesh, const FSkeletalMeshOptimizationSettings& InSetting, const FSimplygonRemeshingSettings& InRemeshingSettings, int32 DesiredLOD)
 {
 	IMeshUtilities& MeshUtilities = FModuleManager::Get().LoadModuleChecked<IMeshUtilities>("MeshUtilities");
 	IMeshReduction* MeshReduction = MeshUtilities.GetMeshReductionInterface();
@@ -85,7 +85,7 @@ void FLODUtilities::SimplifySkeletalMeshLOD( USkeletalMesh* SkeletalMesh, const 
 		GWarn->BeginSlowTask(StatusUpdate, true);
 	}
 
-	if(MeshReduction->ReduceSkeletalMesh(SkeletalMesh, DesiredLOD, InSetting, true))
+	if (MeshReduction->ReduceSkeletalMesh(SkeletalMesh, DesiredLOD, InSetting, InRemeshingSettings, true))
 	{
 		check(SkeletalMesh->LODInfo.Num() >= 2);
 		SkeletalMesh->MarkPackageDirty();
@@ -104,7 +104,7 @@ void FLODUtilities::SimplifySkeletalMeshLOD( USkeletalMesh* SkeletalMesh, const 
 	GWarn->EndSlowTask();
 }
 
-void FLODUtilities::SimplifySkeletalMesh( FSkeletalMeshUpdateContext& UpdateContext, TArray<FSkeletalMeshOptimizationSettings> &InSettings, bool bForceRegenerate )
+void FLODUtilities::SimplifySkeletalMesh(FSkeletalMeshUpdateContext& UpdateContext, TArray<FSkeletalMeshOptimizationSettings> &InSettings, TArray<FSimplygonRemeshingSettings> &InRemeshingSettings, bool bForceRegenerate)
 {
 	USkeletalMesh* SkeletalMesh = UpdateContext.SkeletalMesh;
 	IMeshUtilities& MeshUtilities = FModuleManager::Get().LoadModuleChecked<IMeshUtilities>("MeshUtilities");
@@ -113,18 +113,53 @@ void FLODUtilities::SimplifySkeletalMesh( FSkeletalMeshUpdateContext& UpdateCont
 	if ( MeshReduction && MeshReduction->IsSupported() && SkeletalMesh )
 	{
 		// Simplify each LOD
+		//@third party code BEGIN SIMPLYGON
+		bool MeshBuilt[MAX_SKELETAL_MESH_LODS];
+		FMemory::Memzero(MeshBuilt);
+		//@third party code END SIMPLYGON
+
 		for (int32 SettingIndex = 0; SettingIndex < InSettings.Num(); ++SettingIndex)
 		{
 			uint32 DesiredLOD = SettingIndex + 1;
 
 			// check whether reduction settings are same or not
-			if (!bForceRegenerate && SkeletalMesh->LODInfo.IsValidIndex(DesiredLOD) 
-			 && SkeletalMesh->LODInfo[DesiredLOD].ReductionSettings == InSettings[SettingIndex])
+			//@third party code BEGIN SIMPLYGON
+			check(InSettings.Num() == InRemeshingSettings.Num());
+			if (!bForceRegenerate && SkeletalMesh->LODInfo.IsValidIndex(DesiredLOD))
 			{
-				continue;
+				const FSkeletalMeshOptimizationSettings& NewReductionSettings = InSettings[SettingIndex];
+				const FSimplygonRemeshingSettings& NewRemeshingSettings = InRemeshingSettings[SettingIndex];
+				bool IsReduction = !NewRemeshingSettings.bActive;
+				// check bForceBuild property, reset it immediately
+				bool bForceBuildThisLOD = NewReductionSettings.bForceRebuild;
+				InSettings[SettingIndex].bForceRebuild = false;
+				if (IsReduction)
+				{
+					const FSkeletalMeshOptimizationSettings& CurrentReductionSettings = SkeletalMesh->LODInfo[DesiredLOD].ReductionSettings;
+					int32 ParentLOD = NewReductionSettings.BaseLODModel;
+					if (CurrentReductionSettings == NewReductionSettings
+						&& CurrentReductionSettings.MaterialLODSettings == NewReductionSettings.MaterialLODSettings
+						&& !MeshBuilt[ParentLOD]
+						&& !bForceBuildThisLOD)
+					{
+						continue;
+					}
+				}
+				else
+				{
+					const FSimplygonRemeshingSettings& CurrentRemeshingSettings = SkeletalMesh->LODInfo[DesiredLOD].RemeshingSettings;
+					if (CurrentRemeshingSettings == NewRemeshingSettings
+						&& CurrentRemeshingSettings.MaterialLODSettings == NewRemeshingSettings.MaterialLODSettings
+						&& !bForceBuildThisLOD)
+					{
+						continue;
+					}
+				}
 			}
+			MeshBuilt[DesiredLOD] = true;
+			//@third party code END SIMPLYGON
 
-			SimplifySkeletalMeshLOD( SkeletalMesh, InSettings[SettingIndex], DesiredLOD );
+			SimplifySkeletalMeshLOD(SkeletalMesh, InSettings[SettingIndex], InRemeshingSettings[SettingIndex], DesiredLOD);
 		}
 
 		//Notify calling system of change

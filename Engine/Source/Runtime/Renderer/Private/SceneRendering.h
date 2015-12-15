@@ -769,7 +769,13 @@ protected:
 		FVisibleLightInfo& VisibleLightInfo,
 		bool bStaticSceneOnly,
 		const TArray<FProjectedShadowInfo*, SceneRenderingAllocator>& ViewDependentWholeSceneShadows,
-		TArray<FProjectedShadowInfo*, SceneRenderingAllocator>& PreShadows);
+		TArray<FProjectedShadowInfo*, SceneRenderingAllocator>& PreShadows
+		//@third party code BEGIN SIMPLYGON
+#if SG_ENABLE_DEPRECATED_MASSIVELOD
+		, const FVector& ViewOrigin
+#endif
+		);
+		//@third party code END SIMPLYGON
 
 	/** Generates FProjectedShadowInfos for all wholesceneshadows on the given light.*/
 	void AddViewDependentWholeSceneShadowsForView(

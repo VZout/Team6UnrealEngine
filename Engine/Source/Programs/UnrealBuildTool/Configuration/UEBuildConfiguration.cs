@@ -249,13 +249,15 @@ namespace UnrealBuildTool
 			bCompileMcpOSS = bCompileMcpOSS
 			   && Directory.Exists("Runtime/Online/NotForLicensees/OnlineSubsystemMcp") == true;
 
-
-			bCompileSimplygon = bCompileSimplygon
+			//@third party code BEGIN SIMPLYGON
+			//Always enable Simplygon by commenting code below
+			/*bCompileSimplygon = bCompileSimplygon
 				&& Directory.Exists(UEBuildConfiguration.UEThirdPartySourceDirectory + "NotForLicensees") == true
 				&& Directory.Exists(UEBuildConfiguration.UEThirdPartySourceDirectory + "NotForLicensees/Simplygon") == true
 				&& Directory.Exists("Developer/SimplygonMeshReduction") == true
-				&& !(ProjectFileGenerator.bGenerateProjectFiles && ProjectFileGenerator.bGeneratingRocketProjectFiles);
-		}
+				&& !(ProjectFileGenerator.bGenerateProjectFiles && ProjectFileGenerator.bGeneratingRocketProjectFiles);*/
+			//@third party code END SIMPLYGON
+			}
 
 		/**
 		 * Validates the configuration.

@@ -281,7 +281,7 @@ float UKismetMathLibrary::Divide_FloatFloat(float A, float B)
 	if (B == 0.f)
 	{
 		//@TODO: EXCEPTION: Throw script exception 
-		FFrame::KismetExecutionMessage(TEXT("Divide by zero: Divide_FloatFloat"), ELogVerbosity::Warning);
+		//FFrame::KismetExecutionMessage(TEXT("Divide by zero: Divide_FloatFloat"), ELogVerbosity::Warning);
 		return 0.f;
 	}
 

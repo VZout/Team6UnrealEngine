@@ -26,6 +26,9 @@ public:
 		, DefaultLightMapResolution(64)
 		, BasePercentTrianglesMult(1.0f)
 		, DisplayName( NSLOCTEXT( "UnrealEd", "None", "None" ) )
+		//@third party code BEGIN SIMPLYGON
+		, DefaultLightMapIndex(0)
+		//@third party code END SIMPLYGON
 	{
 		FMemory::Memzero(SettingsBias);
 		SettingsBias.PercentTriangles = 1.0f;
@@ -43,6 +46,14 @@ public:
 		return DefaultLightMapResolution;
 	}
 
+	//@third party code BEGIN SIMPLYGON
+	/** Returns the default lightmap index. */
+	int32 GetDefaultLightMapIndex() const
+	{
+		return DefaultLightMapIndex;
+	}
+	//@third party code END SIMPLYGON
+	
 	/** Returns default reduction settings for the specified LOD. */
 	FMeshReductionSettings GetDefaultSettings(int32 LODIndex) const
 	{
@@ -68,6 +79,10 @@ private:
 	FMeshReductionSettings DefaultSettings[MAX_STATIC_MESH_LODS];
 	/** Biases applied to reduction settings. */
 	FMeshReductionSettings SettingsBias;
+	
+	//@third party code BEGIN SIMPLYGON
+	int32 DefaultLightMapIndex;
+	//@third party code END SIMPLYGON
 };
 
 /**
@@ -564,7 +579,7 @@ struct FStaticMeshLODResources
 	/** Default constructor. */
 	FStaticMeshLODResources();
 
-	~FStaticMeshLODResources();
+	ENGINE_API ~FStaticMeshLODResources();
 
 	/** Initializes all rendering resources. */
 	void InitResources(UStaticMesh* Parent);

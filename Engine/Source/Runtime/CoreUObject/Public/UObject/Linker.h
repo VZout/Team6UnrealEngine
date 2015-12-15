@@ -1359,17 +1359,17 @@ public:
 private:
 	// Variables used during async linker creation.
 
-	/** Current index into name map, used by async linker creation for spreading out serializing name entries.					*/
+	/** Current index into name map, used by async linker creation for spreading out serializing name entries.				*/
 	int32						NameMapIndex;
 	/** Current index into gatherable text data map, used by async linker creation for spreading out serializing text entries.	*/
 	int32						GatherableTextDataMapIndex;
-	/** Current index into import map, used by async linker creation for spreading out serializing importmap entries.			*/	
+	/** Current index into import map, used by async linker creation for spreading out serializing importmap entries.		*/	
 	int32						ImportMapIndex;
-	/** Current index into export map, used by async linker creation for spreading out serializing exportmap entries.			*/
+	/** Current index into export map, used by async linker creation for spreading out serializing exportmap entries.		*/
 	int32						ExportMapIndex;
-	/** Current index into depends map, used by async linker creation for spreading out serializing dependsmap entries.			*/
+	/** Current index into depends map, used by async linker creation for spreading out serializing dependsmap entries.		*/
 	int32						DependsMapIndex;
-	/** Current index into export hash map, used by async linker creation for spreading out hashing exports.					*/
+	/** Current index into export hash map, used by async linker creation for spreading out hashing exports.				*/
 	int32						ExportHashIndex;
 
 
@@ -1570,7 +1570,7 @@ public:
 	 * @param bForcePreload	Whether to explicitly call Preload (serialize) right away instead of being
 	 *						called from EndLoad()
 	 */
-	void LoadAllObjects( bool bForcePreload = false );
+	COREUOBJECT_API void LoadAllObjects( bool bForcePreload = false );
 
 	/**
 	 * Returns the ObjectName associated with the resource indicated.

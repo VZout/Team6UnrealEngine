@@ -4,6 +4,9 @@
 
 #include "Toolkits/AssetEditorToolkit.h"
 #include "EditorUndoClient.h"
+//@third party code BEGIN SIMPLYGON 
+ #include "SimplygonUtilities.h"
+//@third party code END SIMPLYGON
 
 /**
  * StaticMesh Editor class
@@ -109,13 +112,27 @@ public:
 	/** Get the names of the LOD for menus */
 	TArray< TSharedPtr< FString > >& GetLODLevels() { return LODLevels; }
 	const TArray< TSharedPtr< FString > >& GetLODLevels() const { return LODLevels; }
+	
+	//@third party code BEGIN SIMPLYGON
+	TArray<TSharedPtr<FSimplygonSettingsLODInfo>> SimplygonSettingsLODInfo;
+	
+	DECLARE_EVENT(FStaticMeshEditor, FOnLoadSimplygonSettingsCompletedEvent)
+	FOnLoadSimplygonSettingsCompletedEvent& OnLoadSimplygonSettingsCompleted()
+	{
+		return OnLoadSimplygonSettingsCompletedEvent;
+	}  
+	//@third party code END SIMPLYGON
 
 private:
 	TSharedRef<SDockTab> SpawnTab_Viewport(const FSpawnTabArgs& Args);
 	TSharedRef<SDockTab> SpawnTab_Properties(const FSpawnTabArgs& Args);
 	TSharedRef<SDockTab> SpawnTab_SocketManager(const FSpawnTabArgs& Args);
 	TSharedRef<SDockTab> SpawnTab_Collision(const FSpawnTabArgs& Args);
-
+	//@third party code BEGIN SIMPLYGON
+	FOnLoadSimplygonSettingsCompletedEvent OnLoadSimplygonSettingsCompletedEvent;
+	TSharedRef<SDockTab> SpawnTab_SimplygonGenerateUniqueUVs(const FSpawnTabArgs& Args);
+	//@third party code END SIMPLYGON
+	
 private:
 	/** Binds commands associated with the Static Mesh Editor. */
 	void BindCommands();
@@ -191,6 +208,11 @@ private:
 
 	/** Replace the generated LODs in the original source mesh with the reduced versions.*/
 	void OnSaveGeneratedLODs();
+
+	//@third party code BEGIN SIMPLYGON 
+	/*Load Simplygon Settings */
+	void LoadSimplygonSettings();  
+	//@third party code END SIMPLYGON
 
 	/** Rebuilds the LOD combo list and sets it to "auto", a safe LOD level. */
 	void RegenerateLODComboList();
@@ -268,6 +290,14 @@ private:
 	/** Convex Decomposition widget */
 	TSharedPtr< class SConvexDecomposition> ConvexDecomposition;
 
+	//@third party code BEGIN SIMPLYGON
+	/** Generate Unique UVs widget. */
+	TSharedPtr< class SGenerateUniqueUVs> GenerateUniqueUVs;
+	
+	/** Generate Unique UVs widget. */
+	TSharedPtr< class SSimplygonGenerateUniqueUVs> SimplygonGenerateUniqueUVs;
+	//@third party code END SIMPLYGON
+
 	/** Widget for displaying the available UV Channels. */
 	TSharedPtr< class STextComboBox > UVChannelCombo;
 
@@ -313,4 +343,7 @@ private:
 	static const FName PropertiesTabId;
 	static const FName SocketManagerTabId;
 	static const FName CollisionTabId;
+	//@third party code BEGIN SIMPLYGON
+	static const FName SimplygonGenerateUniqueUVsTabId;
+	//@third party code END SIMPLYGON
 };

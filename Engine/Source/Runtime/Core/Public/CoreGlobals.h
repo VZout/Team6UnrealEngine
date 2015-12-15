@@ -76,6 +76,7 @@ extern CORE_API bool GIsImportingT3D;
 extern CORE_API bool GIsUCCMakeStandaloneHeaderGenerator;
 extern CORE_API bool GIsTransacting;
 
+
 /** Indicates that the game thread is currently paused deep in a call stack,
 while some subset of the editor user interface is pumped.  No game
 thread work can be done until the UI pumping loop returns naturally. */

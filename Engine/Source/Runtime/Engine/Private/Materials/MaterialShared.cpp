@@ -20,6 +20,10 @@
 #include "EngineModule.h"
 #include "Engine/Font.h"
 
+//@third party code BEGIN SIMPLYGON
+#include "Materials/MaterialExpressionTextureCoordinate.h"
+//@third party code END SIMPLYGON
+
 #include "LocalVertexFactory.h"
 
 #include "VertexFactory.h"
@@ -250,7 +254,7 @@ void FMaterialCompilationOutput::Serialize(FArchive& Ar)
 {
 	UniformExpressionSet.Serialize(Ar);
 
-	Ar << bRequiresSceneColorCopy;
+		Ar << bRequiresSceneColorCopy;
 	Ar << bNeedsSceneTextures;
 	Ar << bUsesEyeAdaptation;
 	Ar << bModifiesMeshPosition;
@@ -941,28 +945,28 @@ void FMaterialResource::GetRepresentativeInstructionCounts(TArray<FString> &Desc
 		}
 		else
 		{
-			const FMeshMaterialShaderMap* MeshShaderMap = MaterialShaderMap->GetMeshShaderMap(&FLocalVertexFactory::StaticType);
-			if (MeshShaderMap)
-			{
-				Descriptions.Empty();
-				InstructionCounts.Empty();
+		const FMeshMaterialShaderMap* MeshShaderMap = MaterialShaderMap->GetMeshShaderMap(&FLocalVertexFactory::StaticType);
+		if (MeshShaderMap)
+		{
+			Descriptions.Empty();
+			InstructionCounts.Empty();
 
-				for (int32 InstructionIndex = 0; InstructionIndex < ShaderTypeNames.Num(); InstructionIndex++)
+			for (int32 InstructionIndex = 0; InstructionIndex < ShaderTypeNames.Num(); InstructionIndex++)
+			{
+				FShaderType* ShaderType = FindShaderTypeByName(*ShaderTypeNames[InstructionIndex]);
+				if (ShaderType)
 				{
-					FShaderType* ShaderType = FindShaderTypeByName(*ShaderTypeNames[InstructionIndex]);
-					if (ShaderType)
+					const FShader* Shader = MeshShaderMap->GetShader(ShaderType);
+					if (Shader && Shader->GetNumInstructions() > 0)
 					{
-						const FShader* Shader = MeshShaderMap->GetShader(ShaderType);
-						if (Shader && Shader->GetNumInstructions() > 0)
-						{
-							//if the shader was found, add it to the output arrays
-							InstructionCounts.Push(Shader->GetNumInstructions());
-							Descriptions.Push(ShaderTypeDescriptions[InstructionIndex]);
-						}
+						//if the shader was found, add it to the output arrays
+						InstructionCounts.Push(Shader->GetNumInstructions());
+						Descriptions.Push(ShaderTypeDescriptions[InstructionIndex]);
 					}
 				}
 			}
 		}
+	}
 	}
 
 	check(Descriptions.Num() == InstructionCounts.Num());
@@ -2322,6 +2326,126 @@ int32 UMaterialInterface::CompileProperty(FMaterialCompiler* Compiler, EMaterial
 		return GetDefaultExpressionForMaterialProperty(Compiler, Property);
 	}
 }
+
+//@third party code BEGIN SIMPLYGON
+void UMaterialInterface::AnalyzeMaterialProperty(EMaterialProperty InProperty, int32& OutNumTextureCoordinates, bool& OutUseVertexColor, bool& OutHasNonRepeatingPattern, bool& OutUsePerActorData)
+{
+#if WITH_EDITORONLY_DATA
+	// FHLSLMaterialTranslator collects all required information during translation, but these data are protected. Needs to
+	// derive own class from it to get access to these data.
+	class FMaterialAnalyzer : public FHLSLMaterialTranslator
+	{
+	public:
+		FMaterialAnalyzer(FMaterial* InMaterial,FMaterialCompilationOutput& InMaterialCompilationOutput,const FStaticParameterSet& StaticParameters,EShaderPlatform InPlatform,EMaterialQualityLevel::Type InQualityLevel,ERHIFeatureLevel::Type InFeatureLevel)
+		:	FHLSLMaterialTranslator(InMaterial,InMaterialCompilationOutput,StaticParameters,InPlatform,InQualityLevel,InFeatureLevel)
+		,	bHasNonRepeatingPattern(false)
+		,	bUsePerActorData(false)
+		{}
+		int32 GetTextureCoordsCount() const
+		{
+			return NumUserTexCoords;
+		}
+		bool UsesVertexColor() const
+		{
+			return bUsesVertexColor;
+		}
+
+		virtual int32 TextureCoordinate(uint32 CoordinateIndex, bool UnMirrorU, bool UnMirrorV) override
+		{
+			int32 Result = FHLSLMaterialTranslator::TextureCoordinate(CoordinateIndex, UnMirrorU, UnMirrorV);
+			if (Result >= 0)
+			{
+				// Check if we have extra expressions between TextureCoordinate and TextureSample
+				int32 FunctionIndex = FunctionStack.Num(); // last+1
+				int32 ExpressionIndex = -1;
+				while (true)
+				{
+					if (ExpressionIndex < 0)
+					{
+						// No more expressions in current function, check previous one
+						FunctionIndex--;
+						if (FunctionIndex < 0)
+						{
+							break;
+						}
+						ExpressionIndex = FunctionStack[FunctionIndex].ExpressionStack.Num() - 1;
+						continue;
+					}
+					// At this point we have valid FunctionIndex and ExpressionIndex.
+					const FMaterialFunctionCompileState* Function = &FunctionStack[FunctionIndex];
+					const UMaterialExpression* ParentExpression = Function->ExpressionStack[ExpressionIndex].Expression;
+					if (ParentExpression->IsA(UMaterialExpressionTextureSample::StaticClass()))
+					{
+						// Parent is TextureSample - it's okay.
+						break;
+					}
+					if (ParentExpression->IsA(UMaterialExpressionTextureCoordinate::StaticClass()))
+					{
+						// TextureCoordinate - check it's parent.
+						ExpressionIndex--;
+						continue;
+					}
+					// Some different expression between TextureCoordinate and TextureSample
+					bHasNonRepeatingPattern = true;
+					break;
+				}
+			}
+			return Result;
+		}
+
+		virtual int32 Texture(UTexture* InTexture, ESamplerSourceMode SamplerSource) override
+		{
+			int32 Result = FHLSLMaterialTranslator::Texture(InTexture, SamplerSource);
+			if (Result >= 0)
+			{
+				// Verify texture's wrap mode
+				UTexture2D* Texture2D = Cast<UTexture2D>(InTexture);
+				if (Texture2D)
+				{
+					if (Texture2D->AddressX != TA_Wrap || Texture2D->AddressY != TA_Wrap)
+					{
+						bHasNonRepeatingPattern = true;
+					}
+				}
+			}
+			return Result;
+		}
+
+		virtual int32 LightmapUVs() override
+		{
+			bUsePerActorData = true;
+			return FHLSLMaterialTranslator::LightmapUVs();
+		}
+
+		virtual int32 ActorWorldPosition() override
+		{
+			bUsePerActorData = true;
+			return FHLSLMaterialTranslator::ActorWorldPosition();
+		}
+
+		virtual int32 PrecomputedAOMask() override
+		{
+			bUsePerActorData = true;
+			return FHLSLMaterialTranslator::PrecomputedAOMask();
+		}
+
+		bool bHasNonRepeatingPattern;
+		bool bUsePerActorData;
+	};
+
+	FMaterialCompilationOutput TempOutput;
+	FMaterialResource* MaterialResource = GetMaterialResource(GMaxRHIFeatureLevel);
+	FMaterialAnalyzer MaterialTranslator(MaterialResource, TempOutput, FStaticParameterSet(), GMaxRHIShaderPlatform, MaterialResource->GetQualityLevel(), GMaxRHIFeatureLevel);
+	static_cast<FMaterialCompiler*>(&MaterialTranslator)->SetMaterialProperty(InProperty); // FHLSLMaterialTranslator hides this interface, so cast to parent
+	CompileProperty(&MaterialTranslator, InProperty);
+	// Request data from translator
+	OutNumTextureCoordinates = MaterialTranslator.GetTextureCoordsCount();
+	OutUseVertexColor = MaterialTranslator.UsesVertexColor();
+	OutHasNonRepeatingPattern = MaterialTranslator.bHasNonRepeatingPattern;
+	OutUsePerActorData = MaterialTranslator.bUsePerActorData;
+#endif
+}
+//@third party code END SIMPLYGON
 
 //Reorder the output index for any FExpressionInput connected to a UMaterialExpressionBreakMaterialAttributes.
 //If the order of pins in the material results or the make/break attributes nodes changes 

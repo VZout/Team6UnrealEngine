@@ -2147,3 +2147,7 @@ extern ENGINE_API FSharedSamplerState* Clamp_WorldGroupSettings;
 
 /** Initializes the shared sampler states. */
 extern ENGINE_API void InitializeSharedSamplerStates();
+
+//@third party code BEGIN SIMPLYGON
+float ENGINE_API ComputeMassiveLODSwitchDistance(const FSceneView& View, const float SizeOnScreen, const float SphereRadius);
+//@third party code END SIMPLYGON

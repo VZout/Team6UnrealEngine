@@ -819,6 +819,99 @@ bool UUnrealEdEngine::edactDeleteSelected( UWorld* InWorld, bool bVerifyDeletion
 
 		UE_LOG(LogEditorActor, Log,  TEXT("Deleted Actor: %s"), *Actor->GetClass()->GetName() );
 
+		//@third party code BEGIN SIMPLYGON
+#if SG_ENABLE_DEPRECATED_MASSIVELOD
+		TArray<AActor*> ReplacementActors;
+		//Before destroying the actor we need to reset the MassiveLOD for it..
+		TArray<UPrimitiveComponent*> ActorComponents;
+		Actor->GetComponents(ActorComponents);
+		for (int32 ComponentIndex = 0; ComponentIndex < ActorComponents.Num(); ++ComponentIndex)
+		{
+			UPrimitiveComponent* Component = Cast<UPrimitiveComponent>(ActorComponents[ComponentIndex]);
+			if (Component)
+			{
+				//We can grab the replacement actor from the replacement primitive
+				if (Component->ReplacementPrimitive)
+				{
+					//AReplacementActor = Component->ReplacementPrimitive->GetOwner();
+					ReplacementActors.AddUnique(Component->ReplacementPrimitive->GetOwner());
+					break;
+				}
+
+				if (Component->MassiveLODSizeOnScreen > -1.0f)
+				{
+					//AReplacementActor = Actor;
+					ReplacementActors.AddUnique(Actor);
+					break;
+				}
+			}
+		}
+
+		if (ReplacementActors.Num())
+		{
+			//Placeholder to put all the actors that are replaced by AReplacementActor
+			TArray<AActor*> ActorsToUnlink;
+
+			for (int32 ReplacementActorIndex = 0; ReplacementActorIndex < ReplacementActors.Num(); ReplacementActorIndex++)
+			{
+				//Find all the actors that are using this replacement actor
+				TArray<AActor*> LevelActors = ReplacementActors[ReplacementActorIndex]->GetWorld()->GetCurrentLevel()->Actors;
+				uint32 LevelActorsCount = LevelActors.Num();
+
+				for (uint32 LevelActorIndex = 0; LevelActorIndex < LevelActorsCount; ++LevelActorIndex)
+				{
+					AActor* LevelActor = LevelActors[LevelActorIndex];
+					if (LevelActor)
+					{
+						TArray<UPrimitiveComponent*> LevelActorComponents;
+						LevelActor->GetComponents(LevelActorComponents);
+						for (int32 ComponentIndex = 0; ComponentIndex < LevelActorComponents.Num(); ++ComponentIndex)
+						{
+							UPrimitiveComponent* Component = Cast<UPrimitiveComponent>(LevelActorComponents[ComponentIndex]);
+							if (Component)
+							{
+								//We can grab the replacement actor from the replacement primitive
+								if (Component->ReplacementPrimitive)
+								{
+									if (Component->ReplacementPrimitive->GetOwner() == ReplacementActors[ReplacementActorIndex])
+									{
+										ActorsToUnlink.Add(Component->GetOwner());
+										break; 
+									}
+
+								}
+							}
+						} 
+					}
+
+				} 
+			}
+			GUnrealEd->AssignReplacementComponentsByActors(ActorsToUnlink, NULL);
+
+			//Merge before reseting the MassiveLOD distances
+			ActorsToUnlink.Append(ReplacementActors);
+
+			for (int32 Index = 0; Index < ActorsToUnlink.Num(); ++Index)
+			{
+				AActor* ActorToReset = ActorsToUnlink[Index];
+
+				/*Reset the MassiveLOD distance for current replacement actor (LOD parent) */
+				TArray<UPrimitiveComponent*> ActorToRestComponents;
+				ActorToReset->GetComponents(ActorToRestComponents);
+				for (int32 ComponentIndex = 0; ComponentIndex < ActorToRestComponents.Num(); ++ComponentIndex)
+				{
+					UPrimitiveComponent* Component = Cast<UPrimitiveComponent>(ActorToRestComponents[ComponentIndex]);
+					if (Component)
+					{
+						Component->MassiveLODSizeOnScreen = -1.0f;
+					}
+				}
+				ActorToReset->PostEditChange();
+			}
+		}
+#endif
+		//@third party code END SIMPLYGON
+
 		// Destroy actor and clear references.
 		GEditor->Layers->DisassociateActorFromLayers( Actor );
 		bool WasDestroyed = Actor->GetWorld()->EditorDestroyActor( Actor, false );

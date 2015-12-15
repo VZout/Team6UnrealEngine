@@ -717,6 +717,36 @@ FSuppressableWarningDialog::EResult FSuppressableWarningDialog::ShowModal() cons
 	return RetCode;
 }
 
+//@third party code BEGIN SIMPLYGON 
+bool PromptUserForFile(TArray<FString>& OutOpenFilenames, const FString& Message, const FString& DefaultPath, const FString& DefaultFile,const FString& InFileTypes)
+{
+	IDesktopPlatform* DesktopPlatform = FDesktopPlatformModule::Get();
+	bool bOpened = false;
+	if (DesktopPlatform != NULL)
+	{
+		void* ParentWindowWindowHandle = NULL;
+
+		IMainFrameModule& MainFrameModule = FModuleManager::LoadModuleChecked<IMainFrameModule>(TEXT("MainFrame"));
+		const TSharedPtr<SWindow>& MainFrameParentWindow = MainFrameModule.GetParentWindow();
+		if ( MainFrameParentWindow.IsValid() && MainFrameParentWindow->GetNativeWindow().IsValid() )
+		{
+			ParentWindowWindowHandle = MainFrameParentWindow->GetNativeWindow()->GetOSWindowHandle();
+		}
+
+		bOpened = DesktopPlatform->OpenFileDialog(
+			ParentWindowWindowHandle, 
+			Message, 
+			DefaultPath, 
+			DefaultFile, 
+			InFileTypes, 
+			EFileDialogFlags::None, 
+			OutOpenFilenames);
+	}
+
+	return bOpened;
+}  
+//@third party code END SIMPLYGON
+
 bool PromptUserForDirectory(FString& OutDirectory, const FString& Message, const FString& DefaultPath)
 {
 	bool bFolderSelected = false;

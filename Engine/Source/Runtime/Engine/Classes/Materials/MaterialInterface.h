@@ -146,7 +146,7 @@ struct FLightmassMaterialInterfaceSettings
 	UPROPERTY()
 	uint32 bOverrideExportResolutionScale:1;
 
-	FLightmassMaterialInterfaceSettings()
+		FLightmassMaterialInterfaceSettings()
 		: bCastShadowAsMasked(false)
 		, EmissiveBoost(1.0f)
 		, DiffuseBoost(1.0f)
@@ -566,6 +566,10 @@ public:
 
 	/** Get bitfield indicating which feature levels should be compiled by default */
 	ENGINE_API static uint32 GetFeatureLevelsToCompileForAllMaterials() { return FeatureLevelsForAllMaterials | (1 << GMaxRHIFeatureLevel); }
+
+	//@third party code BEGIN SIMPLYGON
+	ENGINE_API void AnalyzeMaterialProperty(EMaterialProperty InProperty, int32& OutNumTextureCoordinates, bool& OutUseVertexColor, bool& OutHasNonRepeatingPattern, bool& OutUsePerActorData);
+	//@third party code END SIMPLYGON
 
 	/** Iterate over all feature levels currently marked as active */
 	template <typename TFunction>

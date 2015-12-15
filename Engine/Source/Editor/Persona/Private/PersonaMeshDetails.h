@@ -46,6 +46,13 @@ public:
 
 	const FSkeletalMeshOptimizationSettings& GetSettings() const;
 	void UpdateSettings(const FSkeletalMeshOptimizationSettings& InSettings);
+
+	//@third party code BEGIN SIMPLYGON
+	const FSimplygonRemeshingSettings& GetRemeshingSettings() const;
+	void UpdateSettings(const FSimplygonRemeshingSettings& InSettings);
+	const FSimplygonMaterialLODSettings& GetMaterialLODSettingsFromWidget() const;
+	bool IsForceBuild() const;
+	//@third party code END SIMPLYGON
 private:
 	/** IDetailCustomNodeBuilder Interface*/
 	virtual void SetOnRebuildChildren(FSimpleDelegate InOnRegenerateChildren) override {}
@@ -63,6 +70,9 @@ private:
 	ECheckBoxState ShouldRecalculateNormals() const;
 	float GetHardAngleThreshold() const;
 	int32 GetMaxBonesPerVertex() const;
+	//@third party code BEGIN SIMPLYGON
+	float GetBoneReductionRatio() const;
+	//@third party code END SIMPLYGON
 
 	void OnPercentTrianglesChanged(float NewValue);
 	void OnMaxDeviationChanged(float NewValue);
@@ -71,6 +81,9 @@ private:
 	void OnWeldingThresholdChanged(float NewValue);
 	void OnHardAngleThresholdChanged(float NewValue);
 	void OnMaxBonesPerVertexChanged(int32 NewValue);
+	//@third party code BEGIN SIMPLYGON
+	void OnBoneReductionRatioChanged(float NewValue);
+	//@third party code END SIMPLYGON
 
 	void OnSilhouetteImportanceChanged(TSharedPtr<FString> NewValue, ESelectInfo::Type SelectInfo);
 	void OnTextureImportanceChanged(TSharedPtr<FString> NewValue, ESelectInfo::Type SelectInfo);
@@ -80,11 +93,43 @@ private:
 	void UpdateBonesToRemoveProperties(int32 LODIndex);
 	void RefreshBonesToRemove();
 
+	//@third party code BEGIN SIMPLYGON
+	EVisibility IsReductionSetting() const;
+	EVisibility IsRemeshingSetting() const;
+
+	void SetupRemeshingSettings(IDetailChildrenBuilder& ChildrenBuilder, const TAttribute<EVisibility>& RemeshingSettingsVisibility);
+
+	int32 GetSizeOnScreen() const;
+	void OnSizeOnScreenChanged(int32 NewValue);
+	void OnSizeOnScreenCommitted(int32 NewValue, ETextCommit::Type TextCommitType);
+
+	void OnLODTypeChanged(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo);
+
+	void UpdateBaseLODModelOptions();
+	void OnBaseLODModelChanged(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo);
+
+	void OnForceBuildChanged(ECheckBoxState NewValue);
+	ECheckBoxState IsForceBuildChecked() const;
+	//@third party code END SIMPLYGON
+
 private:
 	int32 LODIndex;
 	TWeakPtr<class FPersonaMeshDetails> ParentLODSettings;
 	TSharedPtr<IPropertyHandle>	BoneToRemoveProperty;
 	FSkeletalMeshOptimizationSettings ReductionSettings;
+
+	//@third party code BEGIN SIMPLYGON
+	TSharedPtr<class STextComboBox> LODTypeCombo;
+	TArray<TSharedPtr<FString> > LODTypeOptions;
+
+	TSharedPtr<STextComboBox> BaseLODModelCombo;
+	TArray<TSharedPtr<FString> > BaseLODModelOptions;
+
+	FSimplygonRemeshingSettings RemeshingSettings;
+	TSharedPtr<class IMaterialLODSettingsLayout> MaterialLODSettingsWidget;
+
+	bool bForceBuild;
+	//@third party code END SIMPLYGON
 
 	TArray<TSharedPtr<FString> > ImportanceOptions;
 	TArray<TSharedPtr<FString> > SimplificationOptions;

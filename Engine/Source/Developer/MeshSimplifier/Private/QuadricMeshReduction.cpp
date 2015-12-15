@@ -348,6 +348,9 @@ public:
 		USkeletalMesh* SkeletalMesh,
 		int32 LODIndex,
 		const FSkeletalMeshOptimizationSettings& Settings,
+		//@third party code BEGIN SIMPLYGON
+		const struct FSimplygonRemeshingSettings& RemeshingSettings,
+		//@third party code END SIMPLYGON
 		bool bCalcLODDistance
 		) override
 	{
