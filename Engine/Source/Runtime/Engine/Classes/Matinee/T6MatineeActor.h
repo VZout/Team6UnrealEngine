@@ -7,12 +7,14 @@
 #include "MatineeActor.h"
 #include "T6MatineeActor.generated.h"
 
-UCLASS()
+UCLASS(Blueprintable)
 class AT6MatineeActor : public AMatineeActor{
 	GENERATED_BODY()
 
 public:
 	FOnMatineeEvent Delegate;
+
+	AT6MatineeActor();
 
 	virtual void NotifyEventTriggered(FName EventName, float EventTime, bool bUseCustomEventName = false) override;
 };

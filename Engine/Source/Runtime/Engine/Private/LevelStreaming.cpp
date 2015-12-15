@@ -395,7 +395,7 @@ bool ULevelStreaming::RequestLevel(UWorld* PersistentWorld, bool bAllowLevelLoad
 			{
 				SetLoadedLevel(World->PersistentLevel);
 				// Broadcast level loaded event to blueprints
-				OnLevelLoaded.Broadcast();
+				OnLevelLoaded.Broadcast(this);
 			}
 			
 			return true;
@@ -433,7 +433,7 @@ bool ULevelStreaming::RequestLevel(UWorld* PersistentWorld, bool bAllowLevelLoad
 				// Broadcast level loaded event to blueprints
 				{
 					QUICK_SCOPE_CYCLE_COUNTER(STAT_OnLevelLoaded_Broadcast);
-					OnLevelLoaded.Broadcast();
+					OnLevelLoaded.Broadcast(this);
 				}
 
 				return true;
@@ -524,7 +524,7 @@ void ULevelStreaming::AsyncLevelLoadComplete(const FName& InPackageName, UPackag
 				SetLoadedLevel(Level);
 
 				// Broadcast level loaded event to blueprints
-				OnLevelLoaded.Broadcast();
+				OnLevelLoaded.Broadcast(this);
 
 				// Make sure this level will start to render only when it will be fully added to the world
 				if (LODPackageNames.Num() > 0)
@@ -725,11 +725,11 @@ void ULevelStreaming::BroadcastLevelLoadedStatus(UWorld* PersistentWorld, FName 
 		{
 			if (bLoaded)
 			{
-				(*It)->OnLevelLoaded.Broadcast();
+				(*It)->OnLevelLoaded.Broadcast(*It);
 			}
 			else
 			{
-				(*It)->OnLevelUnloaded.Broadcast();
+				(*It)->OnLevelUnloaded.Broadcast(*It);
 			}
 		}
 	}
@@ -743,11 +743,11 @@ void ULevelStreaming::BroadcastLevelVisibleStatus(UWorld* PersistentWorld, FName
 		{
 			if (bVisible)
 			{
-				(*It)->OnLevelShown.Broadcast();
+				(*It)->OnLevelShown.Broadcast(*It);
 			}
 			else
 			{
-				(*It)->OnLevelHidden.Broadcast();
+				(*It)->OnLevelHidden.Broadcast(*It);
 			}
 		}
 	}

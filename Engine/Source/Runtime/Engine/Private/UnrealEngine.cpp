@@ -1768,9 +1768,11 @@ void UEngine::InitializeObjectReferences()
 	{
 		UClass *SingletonClass = LoadClass<UObject>(NULL, *GameSingletonClassName.ToString(), NULL, LOAD_None, NULL);
 
-		checkf(SingletonClass != NULL, TEXT("Engine config value GameSingletonClassName is not a valid class name."));
+		if(SingletonClass){
+			checkf(SingletonClass != NULL, TEXT("Engine config value GameSingletonClassName is not a valid class name."));
 
-		GameSingleton = NewObject<UObject>(this, SingletonClass);
+			GameSingleton = NewObject<UObject>(this, SingletonClass);
+		}
 	}
 
 	if (DefaultTireType == NULL && DefaultTireTypeName.ToString().Len())

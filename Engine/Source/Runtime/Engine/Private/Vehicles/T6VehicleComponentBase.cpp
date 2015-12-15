@@ -85,7 +85,7 @@ void UT6VehicleComponentBase::FixupSkeletalMesh(){	// Functie nog renamen
 		FBox Box = BodyInstance->GetBodyBounds();
 
 		float Volume = BodySetup->GetVolume(FVector(1, 1, 1));
-		float Radius = FMath::Pow(3 * Volume / (4 * 3.141592654), 1.0f / 3.0f);
+		float Radius = 40;// FMath::Pow(3 * Volume / (4 * 3.141592654), 1.0f / 3.0f);
 
 		UE_LOG(LogVehicles, Warning, TEXT("Volume van wheel %d is %.2f, Radius is %.2f, (%.2f)"), i, Volume, Radius, Box.GetExtent().Z);
 
