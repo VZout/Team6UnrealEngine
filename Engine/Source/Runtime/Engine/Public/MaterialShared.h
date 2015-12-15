@@ -350,7 +350,13 @@ namespace EMaterialShaderMapUsage
 		MaterialExportSpecular,
 		MaterialExportNormal,
 		MaterialExportMetallic,
-		MaterialExportRoughness
+		MaterialExportRoughness,
+		//@third party code BEGIN SIMPLYGON
+		MaterialExportEmissive,
+		MaterialExportOpacity,
+		MaterialExportOpacityMask,
+		MaterialExportAO
+		//@third party code END SIMPLYGON
 	};
 }
 

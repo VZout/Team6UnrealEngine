@@ -858,7 +858,9 @@ public:
 	FD3D11StateCacheBase()
 		: Direct3DDeviceIMContext(nullptr)
 	{
+#if D3D11_ALLOW_STATE_CACHE
 		FMemory::Memzero(CurrentShaderResourceViews, sizeof(CurrentShaderResourceViews));
+#endif
 	}
 
 	void Init(ID3D11DeviceContext* InDeviceContext, bool bInAlwaysSetIndexBuffers = false )

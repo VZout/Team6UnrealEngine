@@ -83,7 +83,14 @@ void FPrimitiveSceneInfoCompact::Init(FPrimitiveSceneInfo* InPrimitiveSceneInfo)
 	StaticDepthPriorityGroup = bHasViewDependentDPG ? 0 : Proxy->GetStaticDepthPriorityGroup();
 }
 
-FPrimitiveSceneInfo::FPrimitiveSceneInfo(UPrimitiveComponent* InComponent,FScene* InScene):
+FPrimitiveSceneInfo::FPrimitiveSceneInfo(UPrimitiveComponent* InComponent,FScene* InScene):  
+	//@third party code BEGIN SIMPLYGON
+#if SG_ENABLE_DEPRECATED_MASSIVELOD_MEMBERS
+	//Used for MassiveLOD
+	ReplacementPrimitive(InComponent->ReplacementPrimitive.Get()), 
+	MassiveLODSizeOnScreen(InComponent->MassiveLODSizeOnScreen),
+#endif
+	//@third party code END SIMPLYGON
 	Proxy(InComponent->SceneProxy),
 	PrimitiveComponentId(InComponent->ComponentId),
 	ComponentLastRenderTime(&InComponent->LastRenderTime),

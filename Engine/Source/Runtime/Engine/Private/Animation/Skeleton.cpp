@@ -455,7 +455,7 @@ bool USkeleton::RecreateBoneTree(USkeletalMesh* InSkelMesh)
 		ReferenceSkeleton.Empty();
 
 		return MergeAllBonesToBoneTree(InSkelMesh);
-	}
+				}
 
 	return false;
 }
@@ -602,7 +602,7 @@ void USkeleton::SetBoneTranslationRetargetingMode(const int32& BoneIndex, EBoneT
 	}
 }
 
-int32 USkeleton::GetAnimationTrackIndex(const int32& InSkeletonBoneIndex, const UAnimSequence* InAnimSeq)
+int32 USkeleton::GetAnimationTrackIndex(const int32 & InSkeletonBoneIndex, const UAnimSequence * InAnimSeq)
 {
 	if( InSkeletonBoneIndex != INDEX_NONE )
 	{
@@ -916,8 +916,8 @@ void USkeleton::HandleSkeletonHierarchyChange()
 		UAnimationAsset* CurrentAnimation = *It;
 		if (CurrentAnimation->GetSkeleton() == this)
 		{
-			CurrentAnimation->ValidateSkeleton();
-		}
+		CurrentAnimation->ValidateSkeleton();
+	}
 	}
 
 #if WITH_EDITORONLY_DATA

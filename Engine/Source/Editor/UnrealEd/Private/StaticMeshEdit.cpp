@@ -830,6 +830,12 @@ struct ExistingStaticMeshData
 	FMeshSectionInfoMap			ExistingSectionInfoMap;
 	TArray<ExistingLODMeshData>	ExistingLODData;
 
+	TArray<FMeshBuildSettings>	ExistingBuildSettings;
+	TArray<FMeshReductionSettings> ExistingReductionSettings;
+	//@third party code BEGIN SIMPLYGON
+	TArray<FSimplygonRemeshingSettings> ExistingRemeshingSettings;
+	//@third party code END SIMPLYGON
+	
 	TArray<UStaticMeshSocket*>	ExistingSockets;
 
 	bool						ExistingUseMaximumStreamingTexelRatio;
@@ -899,6 +905,9 @@ ExistingStaticMeshData* SaveExistingStaticMeshData(UStaticMesh* ExistingMesh)
 			ExistingMeshDataPtr->ExistingLODData[i].ExistingReductionSettings = ExistingMesh->SourceModels[i].ReductionSettings;
 			ExistingMeshDataPtr->ExistingLODData[i].ExistingScreenSize = ExistingMesh->SourceModels[i].ScreenSize;
 			ExistingMesh->SourceModels[i].RawMeshBulkData->LoadRawMesh(ExistingMeshDataPtr->ExistingLODData[i].ExistingRawMesh);
+			//@third party code BEGIN SIMPLYGON
+			ExistingMeshDataPtr->ExistingRemeshingSettings.Add(ExistingMesh->SourceModels[i].RemeshingSettings);
+			//@third party code END SIMPLYGON
 		}
 
 		ExistingMeshDataPtr->ExistingSockets = ExistingMesh->Sockets;
@@ -938,6 +947,9 @@ void RestoreExistingMeshData(struct ExistingStaticMeshData* ExistingMeshDataPtr,
 			NewMesh->SourceModels[i].ReductionSettings = ExistingMeshDataPtr->ExistingLODData[i].ExistingReductionSettings;
 			NewMesh->SourceModels[i].ScreenSize = ExistingMeshDataPtr->ExistingLODData[i].ExistingScreenSize;
 
+			//@third party code BEGIN SIMPLYGON
+			NewMesh->SourceModels[i].RemeshingSettings = ExistingMeshDataPtr->ExistingRemeshingSettings[i];
+			//@third party code END SIMPLYGON
 		}
 
 		for(int32 i=NumCommonLODs; i < ExistingMeshDataPtr->ExistingLODData.Num(); ++i)
@@ -956,6 +968,9 @@ void RestoreExistingMeshData(struct ExistingStaticMeshData* ExistingMeshDataPtr,
 			SrcModel->BuildSettings = ExistingMeshDataPtr->ExistingLODData[i].ExistingBuildSettings;
 			SrcModel->ReductionSettings = ExistingMeshDataPtr->ExistingLODData[i].ExistingReductionSettings;
 			SrcModel->ScreenSize = ExistingMeshDataPtr->ExistingLODData[i].ExistingScreenSize;
+			//@third party code BEGIN SIMPLYGON
+			SrcModel->RemeshingSettings = ExistingMeshDataPtr->ExistingRemeshingSettings[i];
+			//@third party code END SIMPLYGON
 		}
 
 		// Assign sockets from old version of this StaticMesh.

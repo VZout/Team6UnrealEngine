@@ -59,6 +59,11 @@ public:
 
 	// Mesh Menu Commands
 	TSharedPtr< FUICommandInfo > FindSource;
+	
+	//@third party code BEGIN SIMPLYGON
+	TSharedPtr< FUICommandInfo > SimplygonGenerateUniqueUVs;
+	TSharedPtr< FUICommandInfo> SimplygonLoadSettingsIni;
+	//@third party code END SIMPLYGON
 
 	TSharedPtr< FUICommandInfo > ChangeMesh;
 

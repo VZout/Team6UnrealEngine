@@ -135,6 +135,18 @@ public:
 	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadOnly, Category=LOD)
 	float MinDrawDistance;
 
+	//@third party code BEGIN SIMPLYGON
+#if SG_ENABLE_DEPRECATED_MASSIVELOD_MEMBERS
+	/**
+	 * The distance at which the renderer will switch from parent (low LOD) to children (high LOD).
+	 * This is basically the same as MinDrawDistance, except that the low LOD will draw even up close, if there are no children.
+	 * This is needed so the high lod meshes can be in a streamable sublevel, and if streamed out, the low LOD will draw up close.
+	 */
+	UPROPERTY(EditAnywhere, AdvancedDisplay, Category=LOD, meta=(DisplayName="MassiveLOD (Size On Screen)"))
+	float MassiveLODSizeOnScreen;
+#endif
+	//@third party code END SIMPLYGON
+
 	/**  Max draw distance exposed to LDs. The real max draw distance is the min (disregarding 0) of this and volumes affecting this object. */
 	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadOnly, Category=LOD, meta=(DisplayName="Desired Max Draw Distance") )
 	float LDMaxDrawDistance;
@@ -1046,7 +1058,15 @@ public:
 	 */
 	FThreadSafeCounter AttachmentCounter;
 
+	//@third party code BEGIN SIMPLYGON
+#if SG_ENABLE_DEPRECATED_MASSIVELOD_MEMBERS
 	// Scene data
+	/** Replacement primitive to draw instead of this one (multiple UPrim's will point to the same Replacement) */
+	UPROPERTY()
+	TLazyObjectPtr<class UPrimitiveComponent> ReplacementPrimitive;
+	//@third party code END SIMPLYGON
+#endif //SG_ENABLE_DEPRECATED_MASSIVELOD
+
 private:
 	/** LOD parent primitive to draw instead of this one (multiple UPrim's will point to the same LODParent ) */
 	UPROPERTY(duplicatetransient)

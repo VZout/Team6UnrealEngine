@@ -271,6 +271,16 @@ public class UnrealEd : ModuleRules
 
 		SetupModulePhysXAPEXSupport(Target);
 
+		//@third party code BEGIN SIMPLYGON
+		//Enable Simplygon by only comparing the compile flag 
+		if ((UEBuildConfiguration.bCompileSimplygon == true) /*&&
+			(Directory.Exists(UEBuildConfiguration.UEThirdPartySourceDirectory + "NotForLicensees") == true) &&
+			(Directory.Exists(UEBuildConfiguration.UEThirdPartySourceDirectory + "NotForLicensees/Simplygon") == true)*/)
+		{
+			AddThirdPartyPrivateStaticDependencies(Target, "Simplygon");
+		}
+		//@third party code END SIMPLYGON
+
 		if (UEBuildConfiguration.bCompileRecast)
 		{
             PrivateDependencyModuleNames.Add("Navmesh");

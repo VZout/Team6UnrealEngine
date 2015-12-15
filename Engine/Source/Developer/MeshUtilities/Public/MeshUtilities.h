@@ -4,6 +4,13 @@
 
 #include "ModuleInterface.h"
 
+//@third party code BEGIN SIMPLYGON
+#include "Engine.h"
+
+struct FMeshMaterialReductionData;
+
+//@third party code END SIMPLYGON
+
 /**
  * Mesh reduction interface.
  */
@@ -31,6 +38,9 @@ public:
 		class USkeletalMesh* SkeletalMesh,
 		int32 LODIndex,
 		const struct FSkeletalMeshOptimizationSettings& Settings,
+		//@third party code BEGIN SIMPLYGON
+		const struct FSimplygonRemeshingSettings& RemeshingSettings,
+		//@third party code END SIMPLYGON
 		bool bCalcLODDistance
 		) = 0;
 	/**
@@ -42,9 +52,68 @@ public:
 	 *	Returns true if mesh reduction is supported
 	 */
 	virtual bool IsSupported() const = 0;
+
+	
 };
 
 struct FFlattenMaterial;
+
+//@third party code BEGIN SIMPLYGON
+class IMeshMaterialReduction
+{
+public:
+	/**
+	* Reduces the raw mesh using the provided reduction settings.
+	* @param OutReducedMesh - Upon return contains the reduced mesh.
+	* @param OutMaxDeviation - Upon return contains the maximum distance by which the reduced mesh deviates from the original.
+	* @param InMesh - The mesh to reduce.
+	* @param ReductionSettings - Setting with which to reduce the mesh.
+	*/
+	virtual void ReduceWithMaterialLOD(
+		struct FRawMesh& OutReducedMesh,
+		float& OutMaxDeviation,
+		const FMeshMaterialReductionData& InData,
+		const struct FMeshReductionSettings& ReductionSettings,
+		TIndirectArray<FFlattenMaterial>& OutMaterials) = 0;
+
+	virtual void ProxyLOD(
+		const TArray<FMeshMaterialReductionData*>& InData,
+		const struct FSimplygonRemeshingSettings& InProxySettings,
+		FRawMesh& OutProxyMesh,
+		FFlattenMaterial& OutMaterial) = 0;
+
+	virtual void AggregateLOD(
+		const TArray<FMeshMaterialReductionData*>& InData,
+		const struct FSimplygonRemeshingSettings& InProxySettings,
+		FRawMesh& OutProxyMesh,
+		FFlattenMaterial& OutMaterial) = 0;
+
+	virtual bool GenerateUniqueUVs(
+		FRawMesh& RawMesh,
+		uint32 TexCoordIndex,
+		float MaxDesiredStretch,
+		uint32 DesiredTextureWidth,
+		uint32 DesiredTextureHeight,
+		uint32 DesiredGutterSpace) = 0;
+
+	virtual bool GenerateUniqueUVs(
+		const FRawMesh& RawMesh,
+		float MaxDesiredStretch,
+		uint32 DesiredTextureWidth,
+		uint32 DesiredTextureHeight,
+		uint32 DesiredGutterSpace,
+		TArray<FVector2D>& OutTexCoords) = 0;
+
+	virtual bool GenerateUniqueUVs(
+		const FStaticLODModel& LODModel,
+		const FReferenceSkeleton& RefSkeleton, 
+		float MaxDesiredStretch,
+		uint32 DesiredTextureWidth,
+		uint32 DesiredTextureHeight,
+		uint32 DesiredGutterSpace,
+		TArray<FVector2D>& OutTexCoords) = 0;
+};
+//@third party code END SIMPLYGON
 
 /**
  * Mesh merging interface.
@@ -72,12 +141,20 @@ public:
 	 * Retrieve the mesh reduction interface.
 	 */
 	virtual class IMeshReduction* GetMeshReductionInterface() = 0;
-	
-	/**
-	 * Retrieve the mesh merging interface.
-	 */
+
 	virtual class IMeshMerging* GetMeshMergingInterface() = 0;
+	
 };
+
+/*Simplygon Specific Mesh Reduction Module Interface*/
+//@third party code BEGIN SIMPLYGON 
+class ISimplygonModule : public IMeshReductionModule
+{
+public:
+	//Retrieve the mesh material reduction interface
+	virtual class IMeshMaterialReduction* GetMeshMaterialReductionInterface() = 0;
+};
+//@third party code END SIMPLYGON
 
 class IMeshUtilities : public IModuleInterface
 {
@@ -92,7 +169,10 @@ public:
 	virtual bool BuildStaticMesh(
 		class FStaticMeshRenderData& OutRenderData,
 		TArray<struct FStaticMeshSourceModel>& SourceModels,
-		const class FStaticMeshLODGroup& LODGroup
+		const class FStaticMeshLODGroup& LODGroup,
+		//@third party code BEGIN SIMPLYGON 
+		UStaticMesh* InOwnerMesh  
+		//@third party code END SIMPLYGON
 		) = 0;
 
 	/**
@@ -102,6 +182,7 @@ public:
 	 */
 	virtual bool GenerateStaticMeshLODs(
 		TArray<struct FStaticMeshSourceModel>& Models,
+		UStaticMesh* InOwner,
 		const class FStaticMeshLODGroup& LODGroup
 		) = 0;
 
@@ -131,7 +212,10 @@ public:
 		bool bComputeNormals = true,
 		bool bComputeTangents = true,
 		TArray<FText> * OutWarningMessages = NULL,
-		TArray<FName> * OutWarningNames = NULL
+		TArray<FName> * OutWarningNames = NULL,
+		//@third party code BEGIN SIMPLYGON
+		TArray<int32>* OutSourceWedgeMap = NULL
+		//@third party code END SIMPLYGON
 		) = 0;
 
 	/** Returns the mesh reduction plugin if available. */
@@ -139,6 +223,11 @@ public:
 
 	/** Returns the mesh merging plugin if available. */
 	virtual IMeshMerging* GetMeshMergingInterface() = 0;
+
+	//@third party code BEGIN SIMPLYGON 
+	virtual IMeshMaterialReduction* GetMeshMaterialReductionInterface() = 0;
+	virtual class ISimplygonUtilities* GetSimplygonUtilitiesInterface() = 0;
+	//@third party code END SIMPLYGON
 
 	/** Cache optimize the index buffer. */
 	virtual void CacheOptimizeIndexBuffer(TArray<uint16>& Indices) = 0;
@@ -245,4 +334,16 @@ public:
 	*/
 	virtual void CalculateRawMeshTangents(FRawMesh& OutRawMesh, const FMeshBuildSettings& BuildSettings) = 0;
 
+
+	//@third party code BEGIN SIMPLYGON
+	virtual bool GenerateUniqueUVsForStaticMesh(const FRawMesh& RawMesh, int32 TextureResolution, TArray<FVector2D>& OutTexCoords) = 0;
+	virtual bool GenerateUniqueUVsForSkeletalMesh(const FStaticLODModel& LODModel, int32 TextureResolution, TArray<FVector2D>& OutTexCoords) = 0;
+
+	/**
+	 * Convert LOD models from StaticMesh's RenderData to RawMesh format and store to SourceModels.
+	 */
+	virtual bool SaveRawMeshModels(UStaticMesh* StaticMesh) = 0;
+	//@third party code END SIMPLYGON
 };
+
+

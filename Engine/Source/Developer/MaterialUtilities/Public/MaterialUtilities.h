@@ -16,7 +16,29 @@ struct FFlattenMaterial
 		, MetallicSize(0, 0)
 		, RoughnessSize(0, 0)
 		, SpecularSize(0, 0)
+		//@third party code BEGIN SIMPLYGON
+		, OpacitySize(0, 0)
+		, EmissiveSize(0, 0)
+		, AOSize(0, 0)
+		, BlendMode(BLEND_Opaque)
+		, EmissiveScale(1.0f)
+		, bTwoSided(false)
+		//@third party code END SIMPLYGON
 	{}
+
+	//@third party code BEGIN SIMPLYGON
+	void ReleaseData()
+	{
+		DiffuseSamples.Empty();
+		NormalSamples.Empty();
+		MetallicSamples.Empty();
+		RoughnessSamples.Empty();
+		SpecularSamples.Empty();
+		OpacitySamples.Empty();
+		EmissiveSamples.Empty();
+		AOSamples.Empty();
+	}
+	//@third party code END SIMPLYGON
 		
 	FGuid			MaterialId;
 		
@@ -24,14 +46,49 @@ struct FFlattenMaterial
 	FIntPoint		NormalSize;
 	FIntPoint		MetallicSize;	
 	FIntPoint		RoughnessSize;	
-	FIntPoint		SpecularSize;	
+	FIntPoint		SpecularSize;
+	//@third party code BEGIN SIMPLYGON
+	FIntPoint		OpacitySize;
+	FIntPoint		EmissiveSize;
+	FIntPoint		AOSize;
+
+	bool			bTwoSided;
+	EBlendMode		BlendMode;
+	float			EmissiveScale;
+	//@third party code END SIMPLYGON
 			
 	TArray<FColor>	DiffuseSamples;
 	TArray<FColor>	NormalSamples;
 	TArray<FColor>	MetallicSamples;
 	TArray<FColor>	RoughnessSamples;
 	TArray<FColor>	SpecularSamples;
+	//@third party code BEGIN SIMPLYGON
+	TArray<FColor>	OpacitySamples;
+	TArray<FColor>	EmissiveSamples;
+	TArray<FColor>	AOSamples;
+	//@third party code END SIMPLYGON
 };
+
+
+//@third party code BEGIN SIMPLYGON
+class ISimplygonMaterialProxyHook
+{
+public:
+	/**
+	 * Compile-time hooks
+	 */
+	virtual void AddReferencedTextures(TArray<UTexture*>& ReferencedTextures) = 0;
+	virtual FMaterialCompiler* CreateCompilerProxy(FMaterialCompiler* InCompiler) = 0;
+	virtual bool ShouldCache(EShaderPlatform Platform, const FShaderType* ShaderType, const FVertexFactoryType* VertexFactoryType) const = 0;
+	virtual bool RequiresSynchronousCompilation() const = 0;
+	/**
+	 * Render-time hooks
+	 */
+	virtual bool GetVectorValue(const FName ParameterName, FLinearColor* OutValue, const FMaterialRenderContext& Context) const = 0;
+	virtual bool GetScalarValue(const FName ParameterName, float* OutValue, const FMaterialRenderContext& Context) const = 0;
+	virtual bool GetTextureValue(const FName ParameterName,const UTexture** OutValue, const FMaterialRenderContext& Context) const = 0;
+};
+//@third party code END SIMPLYGON
 
 
 class UMaterialInterface;
@@ -132,4 +189,9 @@ public:
 	* @return						Whether operation was successful
 	*/
 	MATERIALUTILITIES_API static bool ExportBaseColor(ULandscapeComponent* LandscapeComponent, int32 TextureSize, TArray<FColor>& OutSamples);
+
+	//@third party code BEGIN SIMPLYGON
+	MATERIALUTILITIES_API static FMaterialRenderProxy* CreateExportMaterialProxy(UMaterialInterface* InMaterial, EMaterialProperty InMaterialProperty, ISimplygonMaterialProxyHook* InProxyHook = nullptr);
+	MATERIALUTILITIES_API static UMaterialInterface* SgCreateMaterial(const FFlattenMaterial& InFlattenMaterial, UPackage* InOuter, const FString& BaseName, EObjectFlags Flags);
+	//@third party code END SIMPLYGON
 };

@@ -45,6 +45,10 @@ void FStaticMeshEditorCommands::RegisterCommands()
 	UI_COMMAND( ChangeMesh, "Change Mesh", "Changes the static mesh asset loaded in the Static Mesh Editor to the asset currently selected in the Content Browser.", EUserInterfaceActionType::Button, FInputChord() );
 
 	UI_COMMAND( SaveGeneratedLODs, "Save Generated LODs", "Saves the generated LODs in the mesh package.", EUserInterfaceActionType::Button, FInputChord());
+	//@third party code BEGIN SIMPLYGON
+	UI_COMMAND( SimplygonGenerateUniqueUVs, "Use Simplygon to Generate Unique UVs", "Opens the _Simplygon Unique UVs_ pane for generating a set of unique (non-overlapping) texture coordinates.", EUserInterfaceActionType::Button, FInputGesture() );
+	UI_COMMAND( SimplygonLoadSettingsIni, "Load Settings", "Load Simplygon Settings Ini", EUserInterfaceActionType::Button, FInputGesture());
+	//@third party code END SIMPLYGON
 }
 
 #undef LOCTEXT_NAMESPACE

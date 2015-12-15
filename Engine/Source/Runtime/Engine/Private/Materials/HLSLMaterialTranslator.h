@@ -2106,44 +2106,44 @@ protected:
 	{
 		FString FunctionNamePattern;
 
-		// If this material has no expressions for world position offset or world displacement, the non-offset world position will
-		// be exactly the same as the offset one, so there is no point bringing in the extra code.
-		// Also, we can't access the full offset world position in anything other than the pixel shader, because it won't have
-		// been calculated yet
-		switch (WorldPositionIncludedOffsets)
-		{
-		case WPT_Default:
+			// If this material has no expressions for world position offset or world displacement, the non-offset world position will
+			// be exactly the same as the offset one, so there is no point bringing in the extra code.
+			// Also, we can't access the full offset world position in anything other than the pixel shader, because it won't have
+			// been calculated yet
+			switch (WorldPositionIncludedOffsets)
 			{
+			case WPT_Default:
+				{
 				FunctionNamePattern = TEXT("Get<PREV>WorldPosition");
 				break;
-			}
+				}
 
-		case WPT_ExcludeAllShaderOffsets:
-			{
-				bNeedsWorldPositionExcludingShaderOffsets = true;
+			case WPT_ExcludeAllShaderOffsets:
+				{
+					bNeedsWorldPositionExcludingShaderOffsets = true;
 				FunctionNamePattern = TEXT("Get<PREV>WorldPosition<NO_MATERIAL_OFFSETS>");
 				break;
-			}
+				}
 
-		case WPT_CameraRelative:
-			{
+			case WPT_CameraRelative:
+				{
 				FunctionNamePattern = TEXT("Get<PREV>TranslatedWorldPosition");
 				break;
-			}
+				}
 
-		case WPT_CameraRelativeNoOffsets:
-			{
-				bNeedsWorldPositionExcludingShaderOffsets = true;
+			case WPT_CameraRelativeNoOffsets:
+				{
+					bNeedsWorldPositionExcludingShaderOffsets = true;
 				FunctionNamePattern = TEXT("Get<PREV>TranslatedWorldPosition<NO_MATERIAL_OFFSETS>");
 				break;
-			}
+				}
 
-		default:
-			{
-				Errorf(TEXT("Encountered unknown world position type '%d'"), WorldPositionIncludedOffsets);
-				return INDEX_NONE;
+			default:
+				{
+					Errorf(TEXT("Encountered unknown world position type '%d'"), WorldPositionIncludedOffsets);
+					return INDEX_NONE;
+				}
 			}
-		}
 
 		// If compiling for the previous frame in the vertex shader
 		FunctionNamePattern.ReplaceInline(TEXT("<PREV>"), bCompilingPreviousFrame && ShaderFrequency == SF_Vertex ? TEXT("Prev") : TEXT(""));
@@ -2153,14 +2153,14 @@ protected:
 			// No material offset only available in the vertex shader.
 			// TODO: should also be available in the tesselation shader
 			FunctionNamePattern.ReplaceInline(TEXT("<NO_MATERIAL_OFFSETS>"), TEXT("_NoMaterialOffsets"));
-		}
-		else
-		{
+			}
+			else
+			{
 			FunctionNamePattern.ReplaceInline(TEXT("<NO_MATERIAL_OFFSETS>"), TEXT(""));
-		}
+			}
 
 		return AddInlinedCodeChunk(MCT_Float3, TEXT("%s(Parameters)"), *FunctionNamePattern);
-	}
+		}
 
 	virtual int32 ObjectWorldPosition() override
 	{
@@ -2358,7 +2358,7 @@ protected:
 			(TextureType == MCT_TextureCube)
 			? TEXT("TextureCubeSample")
 			: TEXT("Texture2DSample");
-		
+	
 		EMaterialValueType UVsType = (TextureType == MCT_TextureCube) ? MCT_Float3 : MCT_Float2;
 	
 		if(MipValueMode == TMVM_None)
@@ -3213,10 +3213,10 @@ protected:
 		}
 		
 		{ // validation
-			if (ShaderFrequency != SF_Pixel && ShaderFrequency != SF_Compute && ShaderFrequency != SF_Domain && ShaderFrequency != SF_Vertex)
-			{
-				return NonPixelShaderExpressionError();
-			}
+		if (ShaderFrequency != SF_Pixel && ShaderFrequency != SF_Compute && ShaderFrequency != SF_Domain && ShaderFrequency != SF_Vertex)
+		{
+			return NonPixelShaderExpressionError();
+		}
 
 			if (ShaderFrequency != SF_Pixel && ShaderFrequency != SF_Compute && ShaderFrequency != SF_Vertex)
 			{
@@ -3231,77 +3231,77 @@ protected:
 				return Errorf(TEXT("Tangent basis not available for position transformations"));
 			}
 		
-			// Construct float3(0,0,x) out of the input if it is a scalar
-			// This way artists can plug in a scalar and it will be treated as height, or a vector displacement
+		// Construct float3(0,0,x) out of the input if it is a scalar
+		// This way artists can plug in a scalar and it will be treated as height, or a vector displacement
 			if (GetType(A) == MCT_Float1 && SourceCoordBasis == MCB_Tangent)
-			{
-				A = AppendVector(Constant2(0, 0), A);
-			}
+		{
+			A = AppendVector(Constant2(0, 0), A);
+		}
 			else if (GetNumComponents(GetParameterType(A)) < 3)
-			{
+		{
 				return Errorf(TEXT("input must be a vector (%s: %s) or a scalar (if source is Tangent)"), *GetParameterCode(A), DescribeType(GetParameterType(A)));
-			}
+		}
 		}
 		
 		if (SourceCoordBasis == DestCoordBasis)
 		{
 			// no transformation needed
 			return A;
-		}
+			}
 		
-		FString CodeStr;
+				FString CodeStr;
 		EMaterialCommonBasis IntermediaryBasis = MCB_World;
 
 		switch (SourceCoordBasis)
-		{
+				{
 			case MCB_Tangent:
-			{
+					{
 				check(AWComponent == 0);
 				if (DestCoordBasis == MCB_World)
-				{
+						{
 					if (ShaderFrequency == SF_Domain)
-					{
-						// domain shader uses a prescale value to preserve scaling factor on WorldTransform	when sampling a displacement map
+						{
+							// domain shader uses a prescale value to preserve scaling factor on WorldTransform	when sampling a displacement map
 						CodeStr = FString(TEXT("TransformTangent<TO>World_PreScaled(Parameters, <A>.xyz)"));
-					}
-					else
-					{
+						}
+						else
+						{
 						CodeStr = TEXT("mul(<A>, <MATRIX>(Parameters.TangentToWorld))");
-					}
-				}
+						}
+						}
 				// else use MCB_World as intermediary basis
-				break;
-			}
+						break;
+					}
 			case MCB_Local:
-			{
-				if (DestCoordBasis == MCB_World)
 				{
+				if (DestCoordBasis == MCB_World)
+					{
 					 // TODO: need <PREV>
 					CodeStr = TEXT("TransformLocal<TO>World(Parameters, <A>.xyz)");
-				}
+					}
 				// else use MCB_World as intermediary basis
-				break;
-			}
+						break;
+					}
 			case MCB_TranslatedWorld:
-			{
-				if (DestCoordBasis == MCB_World)
 				{
+				if (DestCoordBasis == MCB_World)
+					{
 					if (AWComponent)
-					{
+						{
 						CodeStr = TEXT("(<A>.xyz - View.<PREV>PreViewTranslation.xyz)");
-					}
+						}
 					else
-					{
+						{
 						CodeStr = TEXT("<A>");
-					}
+						}
 				}
 				else if (DestCoordBasis == MCB_View)
 				{
 					CodeStr = TEXT("mul(<A>, <MATRIX>(View.<PREV>TranslatedWorldToView))");
 				}
 				// else use MCB_World as intermediary basis
-				break;
-			}
+						break;
+					}
 			case MCB_World:
 			{
 				if (DestCoordBasis == MCB_Tangent)
@@ -3315,22 +3315,22 @@ protected:
 					CodeStr = TEXT("mul(<A>, <MATRIX>(Primitive.WorldToLocal))");
 				}
 				else if (DestCoordBasis == MCB_TranslatedWorld)
-				{
+					{
 					if (AWComponent)
-					{
+						{
 						CodeStr = TEXT("(<A>.xyz + View.<PREV>PreViewTranslation.xyz)");
-					}
+						}
 					else
-					{
+						{
 						CodeStr = TEXT("<A>");
-					}
+						}
 				}
 				// else use MCB_TranslatedWorld as intermediary basis
 				IntermediaryBasis = MCB_TranslatedWorld;
-				break;
-			}
+						break;
+					}
 			case MCB_View:
-			{
+				{
 				if (DestCoordBasis == MCB_TranslatedWorld)
 				{
 					CodeStr = TEXT("mul(<A>, <MATRIX>(View.<PREV>ViewToTranslatedWorld))");
@@ -3345,7 +3345,7 @@ protected:
 		}
 
 		if (CodeStr.IsEmpty())
-		{
+	{
 			// check intermediary basis so we don't have infinite recursion
 			check(IntermediaryBasis != SourceCoordBasis);
 			check(IntermediaryBasis != DestCoordBasis);
@@ -3370,21 +3370,21 @@ protected:
 		}
 		
 		if (bCompilingPreviousFrame)
-		{
+			{
 			CodeStr.ReplaceInline(TEXT("<PREV>"),TEXT("Prev"));
-		}
+			}
 		else
-		{
+			{
 			CodeStr.ReplaceInline(TEXT("<PREV>"),TEXT(""));
-		}
-		
+			}
+				
 		CodeStr.ReplaceInline(TEXT("<A>"), *GetParameterCode(A));
 
 		return AddCodeChunk(
-			MCT_Float3,
+				MCT_Float3,
 			*CodeStr
-			);
-	}
+				);
+		}
 	
 	virtual int32 TransformVector(EMaterialCommonBasis SourceCoordBasis, EMaterialCommonBasis DestCoordBasis, int32 A) override
 	{

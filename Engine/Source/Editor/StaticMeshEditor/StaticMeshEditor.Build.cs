@@ -13,7 +13,10 @@ public class StaticMeshEditor : ModuleRules
 				"Kismet",
 				"EditorWidgets",
 				"MeshUtilities",				
-                "PropertyEditor"
+                "PropertyEditor",
+				//@third party code BEGIN SIMPLYGON
+				"SimplygonUtilities"
+				//@third party code END SIMPLYGON
 			}
 		);
 
@@ -34,6 +37,9 @@ public class StaticMeshEditor : ModuleRules
 				"RawMesh",
                 "PropertyEditor",
 				"MeshUtilities",
+				//@third party code BEGIN SIMPLYGON
+				"SimplygonUtilities"
+				//@third party code END SIMPLYGON
 			}
 		);
 

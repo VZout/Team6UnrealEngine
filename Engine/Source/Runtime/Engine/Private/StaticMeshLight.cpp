@@ -320,8 +320,16 @@ void UStaticMeshComponent::GetStaticLightingInfo(FStaticLightingPrimitiveInfo& O
 				StaticLightingMeshes.Add(StaticLightingMesh);
 
 				// Shrink LOD texture lightmaps by half for each LOD level
-				const int32 LightMapWidth = LODIndex > 0 ? FMath::Max(BaseLightMapWidth / (2 << (LODIndex - 1)), 32) : BaseLightMapWidth;
-				const int32 LightMapHeight = LODIndex > 0 ? FMath::Max(BaseLightMapHeight / (2 << (LODIndex - 1)), 32) : BaseLightMapHeight;
+				//@third party code BEGIN SIMPLYGON
+				int32 LightMapWidth = LODIndex > 0 ? FMath::Max(BaseLightMapWidth / (2 << (LODIndex - 1)), 32) : BaseLightMapWidth;
+				int32 LightMapHeight = LODIndex > 0 ? FMath::Max(BaseLightMapHeight / (2 << (LODIndex - 1)), 32) : BaseLightMapHeight;
+				// Allow per-LOD lightmap resolution override
+				int32 LODLightMapResolution = StaticMesh->SourceModels[LODIndex].OverriddenLightMapRes;
+				if (LODLightMapResolution > 0)
+				{
+					LightMapWidth = LightMapHeight = LODLightMapResolution;
+				}
+				//@third party code END SIMPLYGON
 				// Create a static lighting texture mapping for the LOD.
 				OutPrimitiveInfo.Mappings.Add(new FStaticMeshStaticLightingTextureMapping(
 					this,LODIndex,StaticLightingMesh,LightMapWidth,LightMapHeight,StaticMesh->LightMapCoordinateIndex,true));

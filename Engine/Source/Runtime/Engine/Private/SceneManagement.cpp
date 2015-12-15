@@ -388,8 +388,8 @@ FLODMask ComputeLODForMeshes( const TIndirectArray<class FStaticMesh>& StaticMes
 		{
 			for (int32 SampleIndex = 0; SampleIndex < 2; SampleIndex++)
 			{
-				int32 MinLODFound = INT_MAX;
-				bool bFoundLOD = false;
+		int32 MinLODFound = INT_MAX;
+		bool bFoundLOD = false;
 				const float ScreenSize = ComputeTemporalLODBoundsScreenSize(Origin, SphereRadius, View, SampleIndex);
 
 				for(int32 MeshIndex = NumMeshes-1 ; MeshIndex >= 0 ; --MeshIndex)
@@ -418,29 +418,29 @@ FLODMask ComputeLODForMeshes( const TIndirectArray<class FStaticMesh>& StaticMes
 		{
 			int32 MinLODFound = INT_MAX;
 			bool bFoundLOD = false;
-			const float ScreenSize = ComputeBoundsScreenSize(Origin, SphereRadius, View);
+		const float ScreenSize = ComputeBoundsScreenSize(Origin, SphereRadius, View);
 
-			for(int32 MeshIndex = NumMeshes-1 ; MeshIndex >= 0 ; --MeshIndex)
+		for(int32 MeshIndex = NumMeshes-1 ; MeshIndex >= 0 ; --MeshIndex)
+		{
+			const FStaticMesh& Mesh = StaticMeshes[MeshIndex];
+
+			float MeshScreenSize = Mesh.ScreenSize * ScreenSizeScale;
+
+			if(MeshScreenSize >= ScreenSize)
 			{
-				const FStaticMesh& Mesh = StaticMeshes[MeshIndex];
-
-				float MeshScreenSize = Mesh.ScreenSize * ScreenSizeScale;
-
-				if(MeshScreenSize >= ScreenSize)
-				{
 					LODToRender.SetLOD(Mesh.LODIndex);
-					bFoundLOD = true;
-					break;
-				}
+				bFoundLOD = true;
+				break;
+			}
 
-				MinLODFound = FMath::Min<int32>(MinLODFound, Mesh.LODIndex);
-			}
-			// If no LOD was found matching the screen size, use the lowest in the array instead of LOD 0, to handle non-zero MinLOD
-			if (!bFoundLOD)
-			{
-				LODToRender.SetLOD(MinLODFound);
-			}
+			MinLODFound = FMath::Min<int32>(MinLODFound, Mesh.LODIndex);
 		}
+		// If no LOD was found matching the screen size, use the lowest in the array instead of LOD 0, to handle non-zero MinLOD
+		if (!bFoundLOD)
+		{
+				LODToRender.SetLOD(MinLODFound);
+		}
+	}
 	}
 	return LODToRender;
 }
@@ -476,3 +476,19 @@ void InitializeSharedSamplerStates()
 	BeginInitResource(Wrap_WorldGroupSettings);
 	BeginInitResource(Clamp_WorldGroupSettings);
 }
+//@third party code BEGIN SIMPLYGON
+float ComputeMassiveLODSwitchDistance(const FSceneView& View, const float SizeOnScreen, float SphereRadius)
+{
+	float ScreenWidth = (float)View.ViewRect.Width();
+	float ScreenHeight = (float)View.ViewRect.Height();
+	float ScreenRatio = SizeOnScreen / ScreenWidth;
+	float FOV = FMath::DegreesToRadians( 90.0f ); //Assumes 90 degree as default
+	//float FOVVertical = 2.0f * FMath::Atan(FMath::Tan(FOV / 2.0f)) * (ScreenWidth / ScreenHeight);
+	float ScreenDistance = 1.0f / (FMath::Tan(FOV / 2.0f));
+	float boundingSphereAngle = FMath::Atan(ScreenRatio / ScreenDistance);
+	float Distance = SphereRadius / FMath::Sin(boundingSphereAngle);
+	
+	return Distance*Distance;
+	
+}
+//@third party code END SIMPLYGON

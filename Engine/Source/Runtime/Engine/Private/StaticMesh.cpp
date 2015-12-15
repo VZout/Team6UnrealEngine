@@ -776,7 +776,19 @@ void FStaticMeshRenderData::ResolveSectionInfo(UStaticMesh* Owner)
 			else
 			{
 				const float ViewDistance = CalculateViewDistance(LOD.MaxDeviation, Owner->AutoLODPixelError);
-				ScreenSize[LODIndex] = 2.0f * Bounds.SphereRadius / ViewDistance;
+				//ScreenSize[LODIndex] = 2.0f * Bounds.SphereRadius / ViewDistance;
+				
+				//@third party code BEGIN SIMPLYGON
+				float TempScreenSize = 2.0f * Bounds.SphereRadius / ViewDistance;
+				if (TempScreenSize >= 1.0f)
+				{
+					ScreenSize[LODIndex] = 1.0f - (0.01f * LODIndex);
+			}
+				else
+				{
+					ScreenSize[LODIndex] = TempScreenSize;
+		}
+				//@third party code END SIMPLYGON
 			}
 		}
 		else if (Owner->SourceModels.IsValidIndex(LODIndex))
@@ -860,6 +872,11 @@ void FStaticMeshLODSettings::ReadEntry(FStaticMeshLODGroup& Group, FString Entry
 	{
 		Group.DefaultLightMapResolution = FMath::Max<int32>(Group.DefaultLightMapResolution, 0);
 		Group.DefaultLightMapResolution = (Group.DefaultLightMapResolution + 3) & (~3);
+	}
+
+	if (FParse::Value(*Entry, TEXT("LightMapIndex="), Group.DefaultLightMapIndex))
+	{
+		Group.DefaultLightMapIndex = FMath::Max<int32>(Group.DefaultLightMapIndex, 0);
 	}
 
 	float BasePercentTriangles = 100.0f;
@@ -949,6 +966,7 @@ void FStaticMeshLODSettings::ReadEntry(FStaticMeshLODGroup& Group, FString Entry
 	{
 		Bias.ShadingImportance = (EMeshFeatureImportance::Type)FMath::Clamp<int32>(Importance, -EMeshFeatureImportance::Highest, EMeshFeatureImportance::Highest);
 	}
+
 }
 
 void FStaticMeshLODSettings::GetLODGroupNames(TArray<FName>& OutNames) const
@@ -1004,6 +1022,71 @@ void UStaticMesh::GetLODGroupsDisplayNames(TArray<FText>& OutLODGroupsDisplayNam
 /*------------------------------------------------------------------------------
 	FStaticMeshRenderData
 ------------------------------------------------------------------------------*/
+//@third party code BEGIN SIMPLYGON 
+
+enum ESimplygonStaticMeshVersion
+{
+	// at this point DDC key was changed, so older code was removed
+	VER_STATMESH_ADDED_LOD_COUNT = 7,
+	VER_STATMESH_ADDED_BUILD_SETTINGS,
+	// -----<new versions can be added before this line>-------------------------------------------------
+	// - this needs to be the last line
+	VER_STATMESH_AUTOMATIC_VERSION_PLUS_ONE,
+	VER_STATMESH_AUTOMATIC_VERSION = VER_STATMESH_AUTOMATIC_VERSION_PLUS_ONE - 1
+};
+
+#define VER_STATMESH_MIN_SUPPORTED	VER_STATMESH_ADDED_LOD_COUNT
+
+FArchive& operator<<(FArchive& Ar, FSimplygonChannelCastingSettings& ChannelCastingSettings)
+{
+	Ar << ChannelCastingSettings.MaterialChannel;
+	Ar << ChannelCastingSettings.Caster;
+	Ar << ChannelCastingSettings.bActive;
+	Ar << ChannelCastingSettings.ColorChannels;
+	Ar << ChannelCastingSettings.BitsPerChannel;
+	Ar << ChannelCastingSettings.bUseSRGB;
+	Ar << ChannelCastingSettings.bBakeVertexColors;
+	Ar << ChannelCastingSettings.bFlipBackfacingNormals;
+	Ar << ChannelCastingSettings.bUseTangentSpaceNormals;
+	return Ar;
+}
+
+FArchive& operator<<(FArchive& Ar, FSimplygonMaterialLODSettings& MaterialLODSettings)
+{
+	Ar << MaterialLODSettings.bActive;
+	Ar << MaterialLODSettings.MaterialLODType;
+	Ar << MaterialLODSettings.bUseAutomaticSizes;
+	Ar << MaterialLODSettings.TextureWidth;
+	Ar << MaterialLODSettings.TextureHeight;
+	Ar << MaterialLODSettings.SamplingQuality;
+	Ar << MaterialLODSettings.GutterSpace;
+	Ar << MaterialLODSettings.TextureStrech;
+	Ar << MaterialLODSettings.bReuseExistingCharts;
+
+	Ar << MaterialLODSettings.bBakeVertexData;
+
+	// Note: bBakeActorData is not serialized - this option is valid for MassiveLOD settings only, so don't bother serializing it here
+
+	Ar << MaterialLODSettings.bAllowMultiMaterial;
+	Ar << MaterialLODSettings.bPreferTwoSideMaterials;
+
+	//serialize each channel
+	Ar << MaterialLODSettings.ChannelsToCast;
+
+	return Ar;
+}
+
+FArchive& operator<<(FArchive& Ar, FSimplygonRemeshingSettings& RemeshingSettings)
+{
+	Ar << RemeshingSettings.bActive;
+	Ar << RemeshingSettings.ScreenSize;
+	Ar << RemeshingSettings.bRecalculateNormals;
+	Ar << RemeshingSettings.HardAngleThreshold;
+	Ar << RemeshingSettings.MergeDistance;
+	Ar << RemeshingSettings.MaterialLODSettings;
+	return Ar;
+}  
+//@third party code END SIMPLYGON
 
 FArchive& operator<<(FArchive& Ar, FMeshReductionSettings& ReductionSettings)
 {
@@ -1014,9 +1097,22 @@ FArchive& operator<<(FArchive& Ar, FMeshReductionSettings& ReductionSettings)
 	Ar << ReductionSettings.SilhouetteImportance;
 	Ar << ReductionSettings.TextureImportance;
 	Ar << ReductionSettings.ShadingImportance;
+	//@third party code BEGIN SIMPLYGON
+	Ar << ReductionSettings.bActive;
 	Ar << ReductionSettings.bRecalculateNormals;
+	Ar << ReductionSettings.BaseLODModel;
+	Ar << ReductionSettings.bGenerateUniqueLightmapUVs;
+	Ar << ReductionSettings.bKeepSymmetry;
+	Ar << ReductionSettings.bVisibilityAided;
+	Ar << ReductionSettings.bCullOccluded;
+	Ar << ReductionSettings.VisibilityAggressiveness;
+	Ar << ReductionSettings.MaterialLODSettings;
+	Ar << ReductionSettings.VertexColorImportance;
+	//@third party code END SIMPLYGON
 	return Ar;
 }
+
+
 
 FArchive& operator<<(FArchive& Ar, FMeshBuildSettings& BuildSettings)
 {
@@ -1113,6 +1209,21 @@ namespace StaticMeshDerivedDataTimings
 static FString BuildStaticMeshDerivedDataKey(UStaticMesh* Mesh, const FStaticMeshLODGroup& LODGroup)
 {
 	FString KeySuffix(TEXT(""));
+	//@third party code BEGIN SIMPLYGON
+#if 1
+	// Encode asset path to DDC key. This will:
+	// 1. Avoid situation when single StaticMesh to have multiple DDC objects due to different settings.
+	// 2. Use different DDC objects when StaticMesh was duplicated with different name.
+	// There should not be any performance problems with migration to new DDC key system - all meshes
+	// will be rebuilt only once, and this process will be fast enough because all LODs are stored in
+	// SourceModels array - fast conversion to RenderData will be performed.
+	FString AssetFullName = Mesh->GetPathName().ToLower();
+	for (int32 ByteIndex = 0; ByteIndex < AssetFullName.Len(); ByteIndex++)
+	{
+		ByteToHex(AssetFullName[ByteIndex] & 0xff, KeySuffix);
+	}
+#else
+	//@third party code END SIMPLYGON
 	TArray<uint8> TempBytes;
 	TempBytes.Reserve(64);
 
@@ -1140,6 +1251,9 @@ static FString BuildStaticMeshDerivedDataKey(UStaticMesh* Mesh, const FStaticMes
 			ByteToHex(SettingsAsBytes[ByteIndex], KeySuffix);
 		}
 	}
+	//@third party code BEGIN SIMPLYGON
+#endif
+	//@third party code END SIMPLYGON
 
 	return FDerivedDataCacheInterface::BuildCacheKey(
 		TEXT("STATICMESH"),
@@ -1156,6 +1270,107 @@ static FString BuildDistanceFieldDerivedDataKey(const FString& InMeshKey)
 		TEXT(""));
 }
 
+//@third party code BEGIN SIMPLYGON
+static bool SerializeLODSettings(FArchive& Ar, UStaticMesh* Mesh, const FStaticMeshLODGroup& LODGroup, int32 Version)
+{
+	int32 NumLODs = Mesh->SourceModels.Num();
+	int32 NumSerializedLODs = NumLODs;
+	if (Ar.UE4Ver() >= VER_STATMESH_ADDED_LOD_COUNT)
+		Ar << NumSerializedLODs;
+
+	bool bDataDiffers = (NumLODs != NumSerializedLODs);
+
+	// Serialize build settings before changing Ar.UE4Ver because FMeshBuildSettings has engine's serializer
+	if (Version >= VER_STATMESH_ADDED_BUILD_SETTINGS)
+	{
+		for (int32 LODIndex = 0; LODIndex < NumSerializedLODs; ++LODIndex)
+		{
+			FMeshBuildSettings BuildSettings;
+			if (LODIndex < NumLODs)
+			{
+				if (NumLODs && Ar.IsSaving())
+				{
+					BuildSettings = Mesh->SourceModels[LODIndex].BuildSettings;
+				}
+				Ar << BuildSettings;
+				if (NumLODs && Ar.IsLoading())
+				{
+					bDataDiffers |= (BuildSettings != Mesh->SourceModels[LODIndex].BuildSettings);
+				}
+			}
+			else
+			{
+				// Skipping BuildSettings for LOD which doesn't exist anymore
+				Ar << BuildSettings;
+			}
+		}
+	}
+	else
+	{
+		// Force call to MeshUtilities.BuildStaticMesh, but don't force rebuilding of LODs. Do that to ensure
+		// correct BuildSettings used in mesh.
+		bDataDiffers = true;
+	}
+
+	// For remaining data we use own versioning
+	int32 SavedVersion = Ar.UE4Ver();
+	Ar.SetUE4Ver(Version);
+
+	int32 LODIndex;
+	for (LODIndex = 0; LODIndex < NumSerializedLODs; ++LODIndex)
+	{
+		if (LODIndex < NumLODs)
+		{
+			FStaticMeshSourceModel& SrcModel = Mesh->SourceModels[LODIndex];
+
+			if (Ar.IsSaving())
+			{
+				check(NumLODs == NumSerializedLODs);
+				FMeshReductionSettings FinalReductionSettings = LODGroup.GetSettings(SrcModel.ReductionSettings, LODIndex);
+				Ar << FinalReductionSettings;
+				Ar << SrcModel.RemeshingSettings;
+			}
+			else
+			{
+				check(Ar.IsLoading());
+				FMeshReductionSettings FinalReductionSettings = LODGroup.GetSettings(SrcModel.ReductionSettings, LODIndex);
+				FMeshReductionSettings LoadingReductionSettings;
+				FSimplygonRemeshingSettings LoadingRemeshingSettings;
+				Ar << LoadingReductionSettings;
+				Ar << LoadingRemeshingSettings;
+				if (LoadingReductionSettings != FinalReductionSettings || LoadingRemeshingSettings != SrcModel.RemeshingSettings)
+				{
+					// This LOD has mesh with different settings saved, mark it for rebuilding. Don't need to set
+					// bForceRebuild because SourceModels always has valid LODs, and these LODs should be rebuilt
+					// only when settings were changed using UI.
+					bDataDiffers = true;
+				}
+			}
+		}
+		else
+		{
+			// Drop extra LOD data - saved asset has more LODs that existing one (i.e. engine is reducing number of LODs now)
+			check(Ar.IsLoading());
+			FMeshReductionSettings LoadingReductionSettings;
+			FSimplygonRemeshingSettings LoadingRemeshingSettings;
+			Ar << LoadingReductionSettings;
+			Ar << LoadingRemeshingSettings;
+		}
+	}
+
+	// In a case number of LODs is growing, mark extra LODs as modified
+	for (/* continue iterating */; LODIndex < NumLODs; ++LODIndex)
+	{
+		Mesh->SourceModels[LODIndex].ReductionSettings.bForceRebuild = true;
+	}
+
+	// Restore FArchive version
+	Ar.SetUE4Ver(SavedVersion);
+
+	return !bDataDiffers;
+}
+//@third party code END SIMPLYGON
+
 void FStaticMeshRenderData::Cache(UStaticMesh* Owner, const FStaticMeshLODSettings& LODSettings)
 {
 	if (Owner->GetOutermost()->HasAnyPackageFlags(PKG_FilterEditorOnly))
@@ -1170,14 +1385,53 @@ void FStaticMeshRenderData::Cache(UStaticMesh* Owner, const FStaticMeshLODSettin
 	const FStaticMeshLODGroup& LODGroup = LODSettings.GetLODGroup(Owner->LODGroup);
 	DerivedDataKey = BuildStaticMeshDerivedDataKey(Owner, LODGroup);
 
+	//@third party code BEGIN SIMPLYGON
 	TArray<uint8> DerivedData;
-	if (GetDerivedDataCacheRef().GetSynchronous(*DerivedDataKey, DerivedData))
+	bool bNeedRebuild = GetDerivedDataCacheRef().GetSynchronous(*DerivedDataKey, DerivedData) == false;
+	FMemoryReader Ar(DerivedData, /*bIsPersistent=*/ true);
+
+	if (!bNeedRebuild)
 	{
-		FMemoryReader Ar(DerivedData, /*bIsPersistent=*/ true);
+		// Support versioning for LOD settings. Currently serialized structures are not versioned by original
+		// engine's code, so we can safely reuse Ar.UE4Ver for this.
+		int32 Version;
+		Ar << Version;
+		if (Version > VER_STATMESH_AUTOMATIC_VERSION)
+		{
+			UE_LOG(LogStaticMesh, Warning, TEXT("DDC object for StaticMesh %s was saved with newer engine version, ignoring data"), *Owner->GetPathName());
+			bNeedRebuild = true;
+		}
+		else if (Version < VER_STATMESH_MIN_SUPPORTED)
+		{
+			UE_LOG(LogStaticMesh, Warning, TEXT("DDC object for StaticMesh %s was saved in obsolete format, forcing rebuild"), *Owner->GetPathName());
+			bNeedRebuild = true;
+		}
+		if (!bNeedRebuild)
+		{
+			// Check LOD settings
+			bNeedRebuild = SerializeLODSettings(Ar, Owner, LODGroup, Version) == false;
+			if (!bNeedRebuild)
+			{
+				// Check ReductionSettings.bForceRebuild - this could be set by UI (when this function is called from PostEditChangeProperty)
+				for (int32 LODIndex = 0; LODIndex < Owner->SourceModels.Num(); LODIndex++)
+				{
+					if (Owner->SourceModels[LODIndex].ReductionSettings.bForceRebuild)
+					{
+						bNeedRebuild = true;
+						break;
+					}
+				}
+			}
+		}
+	}
+
+	if (!bNeedRebuild)
+	{
+		//@third party code END SIMPLYGON
 		Serialize(Ar, Owner, /*bCooked=*/ false);
 
 		int32 T1 = FPlatformTime::Cycles();
-		UE_LOG(LogStaticMesh,Verbose,TEXT("Static mesh found in DDC [%fms] %s"),
+		UE_LOG(LogStaticMesh,Log,TEXT("Static mesh found in DDC [%.2fms] %s"),
 			FPlatformTime::ToMilliseconds(T1-T0),
 			*Owner->GetPathName()
 			);
@@ -1190,14 +1444,21 @@ void FStaticMeshRenderData::Cache(UStaticMesh* Owner, const FStaticMeshLODSettin
 		FStaticMeshStatusMessageContext StatusContext( FText::Format( NSLOCTEXT("Engine", "BuildingStaticMeshStatus", "Building static mesh {StaticMeshName}..."), Args ) );
 
 		IMeshUtilities& MeshUtilities = FModuleManager::Get().LoadModuleChecked<IMeshUtilities>(TEXT("MeshUtilities"));
-		MeshUtilities.BuildStaticMesh(*this, Owner->SourceModels, LODGroup);
+		//@third party code BEGIN SIMPLYGON 
+		MeshUtilities.BuildStaticMesh(*this, Owner->SourceModels, LODGroup, Owner);  
+		//@third party code END SIMPLYGON
 		bLODsShareStaticLighting = Owner->CanLODsShareStaticLighting();
 		FMemoryWriter Ar(DerivedData, /*bIsPersistent=*/ true);
+		//@third party code BEGIN SIMPLYGON
+		int32 Version = VER_STATMESH_AUTOMATIC_VERSION;
+		Ar << Version;
+		SerializeLODSettings(Ar, Owner, LODGroup, Version);
 		Serialize(Ar, Owner, /*bCooked=*/ false);
-		GetDerivedDataCacheRef().Put(*DerivedDataKey, DerivedData);
+		GetDerivedDataCacheRef().Put(*DerivedDataKey, DerivedData, /*bPutEvenIfExists=*/ true);
+		//@third party code END SIMPLYGON
 
 		int32 T1 = FPlatformTime::Cycles();
-		UE_LOG(LogStaticMesh,Log,TEXT("Built static mesh [%f.2s] %s"),
+		UE_LOG(LogStaticMesh,Log,TEXT("Built static mesh [%.2fs] %s"),
 			FPlatformTime::ToMilliseconds(T1-T0) / 1000.0f,
 			*Owner->GetPathName()
 			);
@@ -1594,6 +1855,9 @@ FStaticMeshSourceModel::FStaticMeshSourceModel()
 #if WITH_EDITOR
 	RawMeshBulkData = new FRawMeshBulkData();
 	ScreenSize = 0.0f;
+	//@third party code BEGIN SIMPLYGON
+	OverriddenLightMapRes = 0;
+	//@third party code END SIMPLYGON
 #endif // #if WITH_EDITOR
 }
 
@@ -1769,6 +2033,9 @@ void UStaticMesh::CacheDerivedData()
 	RenderData = new FStaticMeshRenderData();
 	RenderData->Cache(this, LODSettings);
 
+	//@third party code BEGIN SIMPLYGON
+	// Disable other platforms - they will not work properly anyway.
+	#if 0
 	// Additionally cache derived data for any other platforms we care about.
 	const TArray<ITargetPlatform*>& TargetPlatforms = TargetPlatformManager.GetActiveTargetPlatforms();
 	for (int32 PlatformIndex = 0; PlatformIndex < TargetPlatforms.Num(); ++PlatformIndex)
@@ -1779,6 +2046,8 @@ void UStaticMesh::CacheDerivedData()
 			GetPlatformStaticMeshRenderData(this, Platform);
 		}
 	}
+	#endif // #if 0
+	//@third party code END SIMPLYGON
 }
 
 void UStaticMesh::CalculateExtendedBounds()
@@ -1905,7 +2174,16 @@ void UStaticMesh::Serialize(FArchive& Ar)
 #if WITH_EDITOR
 		else if (Ar.IsSaving())
 		{
+			//@third party code BEGIN SIMPLYGON
+			// Cook for running platform for now, other platforms are not working yet.
+		#if 0
 			FStaticMeshRenderData& PlatformRenderData = GetPlatformStaticMeshRenderData(this, Ar.CookingTarget());
+		#else
+			ITargetPlatformManagerModule& TargetPlatformManager = GetTargetPlatformManagerRef();
+			ITargetPlatform* RunningPlatform = TargetPlatformManager.GetRunningTargetPlatform();
+			FStaticMeshRenderData& PlatformRenderData = GetPlatformStaticMeshRenderData(this, RunningPlatform);
+		#endif // #if 0
+			//@third party code END SIMPLYGON
 			PlatformRenderData.Serialize(Ar, this, bCooked);
 		}
 #endif
@@ -1959,67 +2237,75 @@ void UStaticMesh::PostLoad()
 #if WITH_EDITOR
 	if (!GetOutermost()->HasAnyPackageFlags(PKG_FilterEditorOnly))
 	{
-		// Needs to happen before 'CacheDerivedData'
+	// Needs to happen before 'CacheDerivedData'
 		if (GetLinkerUE4Version() < VER_UE4_BUILD_SCALE_VECTOR)
+	{
+		int32 NumLODs = SourceModels.Num();
+		for (int32 LODIndex = 0; LODIndex < NumLODs; ++LODIndex)
 		{
-			int32 NumLODs = SourceModels.Num();
-			for (int32 LODIndex = 0; LODIndex < NumLODs; ++LODIndex)
-			{
-				FStaticMeshSourceModel& SrcModel = SourceModels[LODIndex];
+			FStaticMeshSourceModel& SrcModel = SourceModels[LODIndex];
 				SrcModel.BuildSettings.BuildScale3D = FVector(SrcModel.BuildSettings.BuildScale_DEPRECATED);
-			}
 		}
+	}
 
 		if (GetLinkerUE4Version() < VER_UE4_LIGHTMAP_MESH_BUILD_SETTINGS)
-		{
+	{
 			for (int32 i = 0; i < SourceModels.Num(); i++)
-			{
-				SourceModels[i].BuildSettings.bGenerateLightmapUVs = false;
-			}
-		}
-
-		if (GetLinkerUE4Version() < VER_UE4_MIKKTSPACE_IS_DEFAULT)
 		{
-			for (int32 i = 0; i < SourceModels.Num(); ++i)
-			{
-				SourceModels[i].BuildSettings.bUseMikkTSpace = true;
-			}
+			SourceModels[i].BuildSettings.bGenerateLightmapUVs = false;
 		}
+	}
 
-		if (GetLinkerUE4Version() < VER_UE4_BUILD_MESH_ADJ_BUFFER_FLAG_EXPOSED)
+	if (GetLinkerUE4Version() < VER_UE4_MIKKTSPACE_IS_DEFAULT)
+	{
+		for (int32 i = 0; i < SourceModels.Num(); ++i)
 		{
-			FRawMesh TempRawMesh;
-			uint32 TotalIndexCount = 0;
+			SourceModels[i].BuildSettings.bUseMikkTSpace = true;
+		}
+	}
 
-			for (int32 i = 0; i < SourceModels.Num(); ++i)
-			{
-				FRawMeshBulkData* RawMeshBulkData = SourceModels[i].RawMeshBulkData;
-				if (RawMeshBulkData)
-				{
-					RawMeshBulkData->LoadRawMesh(TempRawMesh);
-					TotalIndexCount += TempRawMesh.WedgeIndices.Num();
-				}
-			}
+	if (GetLinkerUE4Version() < VER_UE4_BUILD_MESH_ADJ_BUFFER_FLAG_EXPOSED)
+	{
+		FRawMesh TempRawMesh;
+		uint32 TotalIndexCount = 0;
 
-			for (int32 i = 0; i < SourceModels.Num(); ++i)
+		for (int32 i = 0; i < SourceModels.Num(); ++i)
+		{
+			FRawMeshBulkData* RawMeshBulkData = SourceModels[i].RawMeshBulkData;
+			if (RawMeshBulkData)
 			{
-				SourceModels[i].BuildSettings.bBuildAdjacencyBuffer = (TotalIndexCount < 50000);
+				RawMeshBulkData->LoadRawMesh(TempRawMesh);
+				TotalIndexCount += TempRawMesh.WedgeIndices.Num();
 			}
 		}
 
-		CacheDerivedData();
-		
-		// Only required in an editor build as other builds process this in a different place
+		for (int32 i = 0; i < SourceModels.Num(); ++i)
+		{
+			SourceModels[i].BuildSettings.bBuildAdjacencyBuffer = (TotalIndexCount < 50000);
+		}
+	}
+
+	CacheDerivedData();
+	//@third party code BEGIN SIMPLYGON
+	// Store DerivedData to SourceModels. This code is required only if engine loads
+	// a mesh which was stored to DDC with older plugin version, i.e. it is intended for
+	// migration to SourceModels data storage. At some day it count be considered "legacy"
+	// and removed. Added at 11-Sep-2015, for UE4.8-4.9.
+	IMeshUtilities& MeshUtilities = FModuleManager::Get().LoadModuleChecked<IMeshUtilities>(TEXT("MeshUtilities"));
+	MeshUtilities.SaveRawMeshModels(this);
+	//@third party code END SIMPLYGON
+
+	// Only required in an editor build as other builds process this in a different place
 		if (bRequiresLODDistanceConversion)
-		{
-			// Convert distances to Display Factors
-			ConvertLegacyLODDistance();
-		}
+	{
+		// Convert distances to Display Factors
+		ConvertLegacyLODDistance();
+	}
 
 		if (RenderData && GStaticMeshesThatNeedMaterialFixup.Get(this))
-		{
-			FixupZeroTriangleSections();
-		}
+	{
+		FixupZeroTriangleSections();
+	}
 	}
 #endif // #if WITH_EDITOR
 
@@ -2341,10 +2627,10 @@ void UStaticMesh::EnforceLightmapRestrictions()
 
 	if (RenderData)
 	{
-		for (int32 LODIndex = 0; LODIndex < RenderData->LODResources.Num(); ++LODIndex)
-		{
+	for (int32 LODIndex = 0; LODIndex < RenderData->LODResources.Num(); ++LODIndex)
+	{
 			NumUVs = FMath::Min(RenderData->LODResources[LODIndex].GetNumTexCoords(),NumUVs);
-		}
+	}
 	}
 	else
 	{
@@ -2639,7 +2925,12 @@ bool UStaticMesh::CanLODsShareStaticLighting() const
 	bool bCanShareData = true;
 	for (int32 LODIndex = 1; bCanShareData && LODIndex < SourceModels.Num(); ++LODIndex)
 	{
-		bCanShareData = bCanShareData && SourceModels[LODIndex].RawMeshBulkData->IsEmpty();
+		bCanShareData = bCanShareData && SourceModels[LODIndex].RawMeshBulkData->IsEmpty() ||
+			SourceModels[LODIndex].RawMeshBulkData->IsGeneratedWithSimplygon();
+		//@third party code BEGIN SIMPLYGON
+		bool bWasRemeshed = SourceModels[LODIndex].RemeshingSettings.bActive;
+		bCanShareData &= !bWasRemeshed;
+		//@third party code END SIMPLYGON
 	}
 
 	if (SpeedTreeWind.IsValid())
@@ -2710,7 +3001,7 @@ void UStaticMesh::GenerateLodsInPackage()
 
 	// Generate the reduced models
 	IMeshUtilities& MeshUtilities = FModuleManager::Get().LoadModuleChecked<IMeshUtilities>(TEXT("MeshUtilities"));
-	if (MeshUtilities.GenerateStaticMeshLODs(SourceModels, LODSettings.GetLODGroup(LODGroup)))
+	if (MeshUtilities.GenerateStaticMeshLODs(SourceModels, this, LODSettings.GetLODGroup(LODGroup)))
 	{
 		// Clear LOD settings
 		LODGroup = NAME_None;
@@ -2792,7 +3083,7 @@ bool UStaticMeshSocket::AttachActor(AActor* Actor,  UStaticMeshComponent* MeshCo
 			if (GIsEditor)
 			{
 				Actor->PreEditChange(NULL);
-				Actor->PostEditChange();
+			Actor->PostEditChange();
 			}
 #endif // WITH_EDITOR
 
@@ -2812,4 +3103,19 @@ void UStaticMeshSocket::PostEditChangeProperty( FPropertyChangedEvent& PropertyC
 		ChangedEvent.Broadcast( this, PropertyChangedEvent.MemberProperty );
 	}
 }
+
+//@third party code BEGIN SIMPLYGON
+void UStaticMesh::MarkPlatformDataTransient()
+{
+	ITargetPlatformManagerModule& TargetPlatformManager = GetTargetPlatformManagerRef();
+	ITargetPlatform* RunningPlatform = TargetPlatformManager.GetRunningTargetPlatform();
+	check(RunningPlatform);
+	const FStaticMeshLODSettings& LODSettings = RunningPlatform->GetStaticMeshLODSettings();
+	const FStaticMeshLODGroup& LODGroup = LODSettings.GetLODGroup(this->LODGroup);
+	FString DerivedDataKey = BuildStaticMeshDerivedDataKey(this, LODGroup);
+	FDerivedDataCacheInterface& DDC = GetDerivedDataCacheRef();
+
+	DDC.MarkTransient(*DerivedDataKey);
+}
+//@third party code END SIMPLYGON
 #endif

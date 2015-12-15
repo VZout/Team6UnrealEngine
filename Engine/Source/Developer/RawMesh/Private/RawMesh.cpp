@@ -223,7 +223,9 @@ void FRawMeshBulkData::Serialize(FArchive& Ar, UObject* Owner)
 	Ar << bGuidIsHash;
 }
 
-void FRawMeshBulkData::SaveRawMesh(FRawMesh& InMesh)
+//@third party code BEGIN SIMPLYGON
+void FRawMeshBulkData::SaveRawMesh(FRawMesh& InMesh, bool bGeneratedWithSimplygon)
+//@third party code BEGIN SIMPLYGON
 {
 	TArray<uint8> TempBytes;
 	FMemoryWriter Ar(TempBytes, /*bIsPersistent=*/ true);
@@ -232,8 +234,20 @@ void FRawMeshBulkData::SaveRawMesh(FRawMesh& InMesh)
 	uint8* Dest = (uint8*)BulkData.Realloc(TempBytes.Num());
 	FMemory::Memcpy(Dest, TempBytes.GetData(), TempBytes.Num());
 	BulkData.Unlock();
-	FPlatformMisc::CreateGuid(Guid);
+	//@third party code BEGIN SIMPLYGON
+	if (!bGeneratedWithSimplygon)
+	{
+		FPlatformMisc::CreateGuid(Guid);
+	}
+	//@third party code END SIMPLYGON
 }
+
+//@third party code BEGIN SIMPLYGON
+bool FRawMeshBulkData::IsGeneratedWithSimplygon() const
+{
+	return !Guid.IsValid();
+}
+//@third party code END SIMPLYGON
 
 void FRawMeshBulkData::LoadRawMesh(FRawMesh& OutMesh)
 {

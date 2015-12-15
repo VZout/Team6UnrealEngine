@@ -105,8 +105,11 @@ public:
 	/** Serialization. */
 	RAWMESH_API void Serialize(class FArchive& Ar, class UObject* Owner);
 
+	//@third party code BEGIN SIMPLYGON
 	/** Store a new raw mesh in the bulk data. */
-	RAWMESH_API void SaveRawMesh(struct FRawMesh& InMesh);
+	RAWMESH_API void SaveRawMesh(struct FRawMesh& InMesh, bool bGeneratedWithSimplygon = false);
+	RAWMESH_API bool IsGeneratedWithSimplygon() const;
+	//@third party code END SIMPLYGON
 
 	/** Load the raw mesh from bulk data. */
 	RAWMESH_API void LoadRawMesh(struct FRawMesh& OutMesh);

@@ -189,5 +189,17 @@ UNREALED_API bool PromptUserIfExistingObject(const FString& Name, const FString&
 */
 UNREALED_API bool PromptUserForDirectory(FString& OutDirectory, const FString& Message, const FString& DefaultPath);
 
+//@third party code BEGIN SIMPLYGON 
+/**
+* Helper method for popping up a file dialog for the user.  OutOpenFilenames will be 
+*
+* @param	OutOpenFilenames	[out] The resulting selected files.
+* @param	Message			A message to display in the directory dialog.
+* @param	DefaultPath		An optional default path.
+* @return					true if the user selected the OK button, false otherwise.
+*/
+UNREALED_API bool PromptUserForFile(TArray<FString>& OutOpenFilenames, const FString& Message, const FString& DefaultPath, const FString& DefaultFile,const FString& InFileTypes);  
+//@third party code END SIMPLYGON
+
 
 #endif // __DIALOGS_H__

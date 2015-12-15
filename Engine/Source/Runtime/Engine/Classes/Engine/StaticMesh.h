@@ -6,7 +6,10 @@
 #include "StaticMesh.generated.h"
 
 /** The maximum number of static mesh LODs allowed. */
-#define MAX_STATIC_MESH_LODS 8
+//@third party code BEGIN SIMPLYGON
+//Increased max number of LODs
+#define MAX_STATIC_MESH_LODS 10  
+//@third party code END SIMPLYGON
 
 // Forward declarations
 class UFoliageType_InstancedStaticMesh;
@@ -148,7 +151,16 @@ struct FStaticMeshSourceModel
 
 	/** Reduction settings to apply when building render data. */
 	UPROPERTY(EditAnywhere, Category=ReductionSettings)
-	FMeshReductionSettings ReductionSettings; 
+	FMeshReductionSettings ReductionSettings;
+
+	//@third party code BEGIN SIMPLYGON 
+	UPROPERTY(EditAnywhere, Category=RemeshingSettings)
+	FSimplygonRemeshingSettings RemeshingSettings;  
+
+	/** Allow per-LOD overriding of lightmap resolution */
+	UPROPERTY(EditAnywhere, Category=Lighting)
+	int32 OverriddenLightMapRes;
+	//@third party code END SIMPLYGON
 
 	UPROPERTY()
 	float LODDistance_DEPRECATED;
@@ -627,6 +639,13 @@ public:
 	ENGINE_API static void GetLODGroupsDisplayNames(TArray<FText>& OutLODGroupsDisplayNames);
 
 	ENGINE_API void GenerateLodsInPackage();
+
+	//@third party code BEGIN SIMPLYGON
+	/**
+	 * Marks platform data as transient. This optionally removes persistent or cached data associated with the platform.
+	 */
+	ENGINE_API void MarkPlatformDataTransient();
+	//@third party code END SIMPLYGON
 
 private:
 	/**

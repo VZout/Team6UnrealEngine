@@ -6,6 +6,10 @@
 #include "PropertyEditing.h"
 #include "Engine/StaticMesh.h"
 
+//@third party code BEGIN SIMPLYGON
+#include "SimplygonUtilities.h"
+//@third party code END SIMPLYGON
+
 enum ECreationModeChoice
 {
 	CreateNew,
@@ -34,6 +38,10 @@ public:
 
 	/** Applies level of detail changes to the static mesh */
 	void ApplyChanges();
+
+	//@third party code BEGIN SIMPLYGON 
+	void OnSimplygonSettingsLoaded();  
+	//@third party code END SIMPLYGON
 private:
 	/** Level of detail settings for the details panel */
 	TSharedPtr<FLevelOfDetailSettingsLayout> LevelOfDetailSettings;
@@ -173,11 +181,23 @@ private:
 class FMeshReductionSettingsLayout : public IDetailCustomNodeBuilder, public TSharedFromThis<FMeshReductionSettingsLayout>
 {
 public:
-	FMeshReductionSettingsLayout( TSharedRef<FLevelOfDetailSettingsLayout> InParentLODSettings );
+	//@third party code BEGIN SIMPLYGON
+	//Added a LODIndex which makes it possible to generate a LOD from any of the previous LODs
+	FMeshReductionSettingsLayout( TSharedRef<FLevelOfDetailSettingsLayout> InParentLODSettings, int32 InLODIndex );
+	//@third party code END SIMPLYGON 
+								
 	virtual ~FMeshReductionSettingsLayout();
 
 	const FMeshReductionSettings& GetSettings() const;
 	void UpdateSettings(const FMeshReductionSettings& InSettings);
+	//@third party code BEGIN SIMPLYGON
+	const FSimplygonRemeshingSettings& GetRemeshingSettings() const;
+	void UpdateSettings(const FSimplygonRemeshingSettings& InSettings);
+	bool IsForceBuild() const;
+
+	const FSimplygonMaterialLODSettings& GetMaterialLODSettingsFromWidget() const;
+	
+	//@third party code END SIMPLYGON
 private:
 	/** IDetailCustomNodeBuilder Interface*/
 	virtual void SetOnRebuildChildren( FSimpleDelegate InOnRegenerateChildren ) override {}
@@ -209,6 +229,46 @@ private:
 	void OnSilhouetteImportanceChanged(TSharedPtr<FString> NewValue, ESelectInfo::Type SelectInfo);
 	void OnTextureImportanceChanged(TSharedPtr<FString> NewValue, ESelectInfo::Type SelectInfo);
 	void OnShadingImportanceChanged(TSharedPtr<FString> NewValue, ESelectInfo::Type SelectInfo);
+	
+	//@third party code BEGIN SIMPLYGON
+	void OnVertexColorImportanceChanged(TSharedPtr<FString> NewValue, ESelectInfo::Type SelectInfo);
+
+	void OnVisibilityAidedChanged(ECheckBoxState NewValue);
+	ECheckBoxState IsVisibilityAidedChecked() const;
+	bool IsVisibilityAidedEnabled() const;
+	void OnAggressivenessChanged(TSharedPtr<FString> NewValue, ESelectInfo::Type SelectInfo);
+
+	void OnCullOccludedChanged(ECheckBoxState NewValue);
+	ECheckBoxState IsCullOccludedChecked() const;
+
+	void OnKeepSymmetryChanged(ECheckBoxState NewValue);
+	ECheckBoxState IsKeepSymmetryChecked() const;
+
+	bool RecalculateNormalsEnabled() const;
+
+	void UpdateBaseLODModelOptions();
+	int32 GetCurrentBaseLODModel();
+	void OnBaseLODModelChanged(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo);
+	
+	void OnLODTypeChanged(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo);
+	EVisibility IsReductionSetting() const;
+	EVisibility IsRemeshingSetting() const;
+
+	void SetupRemeshingSettings(IDetailChildrenBuilder& ChildrenBuilder, const TAttribute<EVisibility>& RemeshingSettingsVisibility);
+	void SetupMaterialLODSettings(IDetailChildrenBuilder& ChildrenBuilder);
+
+	int32 GetSizeOnScreen() const;
+	void OnSizeOnScreenChanged(int32 NewValue);
+	void OnSizeOnScreenCommitted(int32 NewValue, ETextCommit::Type TextCommitType);
+
+	//MaterialLOD related methods
+	ECheckBoxState IsMaterialLODChecked() const;
+	void OnMaterialLODChanged(ECheckBoxState NewValue);
+
+	void OnForceBuildChanged(ECheckBoxState NewValue);
+	ECheckBoxState IsForceBuildChecked() const;
+
+	//@third party code END SIMPLYGON
 
 private:
 	TWeakPtr<FLevelOfDetailSettingsLayout> ParentLODSettings;
@@ -217,6 +277,26 @@ private:
 	TSharedPtr<STextComboBox> SilhouetteCombo;
 	TSharedPtr<STextComboBox> TextureCombo;
 	TSharedPtr<STextComboBox> ShadingCombo;
+	
+	//@third party code BEGIN SIMPLYGON
+	TSharedPtr<STextComboBox> VertexColorCombo;
+
+	FSimplygonRemeshingSettings RemeshingSettings;
+	FSimplygonMaterialLODSettings MaterialLODSettings;
+	bool bForceBuild;
+
+	TArray<TSharedPtr<FString> > AggressivenessOptions;
+	TSharedPtr<STextComboBox> AggressivenessCombo;
+
+	TSharedPtr<class STextComboBox> LODTypeCombo;
+	TArray<TSharedPtr<FString> > LODTypeOptions;
+
+	int32 LODIndex;
+	TSharedPtr<STextComboBox> BaseLODModelCombo;
+	TArray<TSharedPtr<FString> > BaseLODModelOptions;
+
+	TSharedPtr<IMaterialLODSettingsLayout> MaterialLODSettingsWidget;
+	//@third party code END SIMPLYGON
 };
 
 class FMeshSectionSettingsLayout : public TSharedFromThis<FMeshSectionSettingsLayout>
@@ -267,6 +347,14 @@ public:
 	/** Apply current LOD settings to the mesh. */
 	void ApplyChanges();
 
+	//@third party code BEGIN SIMPLYGON 
+	/*The following method will update details based on the Simplygon Ini File values*/
+	void UpdateDetailsLayout();
+	void SetLODInfoArray(TArray<TSharedPtr<FSimplygonSettingsLODInfo>>& InLODInfo);  
+	void OnLightMapResChanged(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo, int32 LODIndex);
+	TSharedPtr<FString> GetLightMapResString(int32 LightMapRes);
+	//@third party code END SIMPLYGON
+
 private:
 
 	/** Creates the UI for Current LOD panel */
@@ -307,6 +395,12 @@ private:
 	/** The Static Mesh Editor this tool is associated with. */
 	FStaticMeshEditor& StaticMeshEditor;
 
+	//@third party code BEGIN SIMPLYGON 
+	TArray<TSharedPtr<FSimplygonSettingsLODInfo>> LODInfo;
+
+	TArray< TSharedPtr<FString> > LightMapResOptions;
+	//@third party code END SIMPLYGON
+
 	/** Pool for material thumbnails. */
 	TSharedPtr<FAssetThumbnailPool> ThumbnailPool;
 
@@ -321,6 +415,7 @@ private:
 	TSharedPtr<FMeshReductionSettingsLayout> ReductionSettingsWidgets[MAX_STATIC_MESH_LODS];
 	TSharedPtr<FMeshBuildSettingsLayout> BuildSettingsWidgets[MAX_STATIC_MESH_LODS];
 	TSharedPtr<FMeshSectionSettingsLayout> SectionSettingsWidgets[MAX_STATIC_MESH_LODS];
+	
 
 	/** The display factors at which LODs swap */
 	float LODScreenSizes[MAX_STATIC_MESH_LODS];
@@ -333,4 +428,68 @@ private:
 	bool bBuildSettingsExpanded[MAX_STATIC_MESH_LODS];
 	bool bReductionSettingsExpanded[MAX_STATIC_MESH_LODS];
 	bool bSectionSettingsExpanded[MAX_STATIC_MESH_LODS];
+
 };
+
+//@third party code BEGIN SIMPLYGON
+/** 
+ * Window for generating unique UVs for the static mesh using Simplygon.
+ */
+class SSimplygonGenerateUniqueUVs : public SCompoundWidget
+{
+public:
+	SLATE_BEGIN_ARGS( SSimplygonGenerateUniqueUVs ) :
+	  _StaticMeshEditorPtr()
+	  {
+	  }
+	  /** The Static Mesh Editor this tool is associated with. */
+	  SLATE_ARGUMENT( TWeakPtr< IStaticMeshEditor >, StaticMeshEditorPtr )
+
+	SLATE_END_ARGS()
+
+	void Construct(const FArguments& InArgs);
+
+	virtual ~SSimplygonGenerateUniqueUVs();
+
+	/** Refreshes the tool's LOD and UV channel options. */
+	void RefreshTool();
+
+private:
+
+	/** Callback for the Apply button. */
+	FReply OnApply();
+
+	/** Callback for spinbox to set the MaxStretching variable. */
+	void OnMaxStretchingChanged(float InValue);
+
+	/** Callback for spinbox to set the MaxStretching variable. */
+	void OnMaxStretchingCommitted(float InValue, ETextCommit::Type CommitInfo);
+
+	void OnTextureSizeChanged(float InValue);
+	void OnTextureSizeCommitted(float InValue, ETextCommit::Type CommitInfo);
+
+	void OnGutterSpaceChanged(float InValue);
+	void OnGutterSpaceCommitted(float InValue, ETextCommit::Type CommitInfo);
+
+	/** Refreshes the UV Channel list. */
+	void RefreshUVChannelList();
+
+private:
+	/** The Static Mesh Editor this tool is associated with. */
+	TWeakPtr< IStaticMeshEditor > StaticMeshEditorPtr;
+
+	/** Drop down menu for selecting the UV Channel to save to. */
+	TSharedPtr<class STextComboBox> UVChannelCombo;
+
+	/** Options list for the UV Channel options. */
+	TArray< TSharedPtr< FString > > UVChannels;
+
+
+	/** Modified by a spinbox, user setting for max stretching. */
+	float MaxStretching;
+
+	float TargetTextureSize;
+
+	float GutterSpace;
+};
+//@third party code END SIMPLYGON

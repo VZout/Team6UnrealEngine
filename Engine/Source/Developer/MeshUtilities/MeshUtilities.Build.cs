@@ -15,7 +15,8 @@ public class MeshUtilities : ModuleRules
 				"RawMesh",
 				"RenderCore", // For FPackedNormal
 				"SlateCore",
-				"MaterialUtilities"
+				"MaterialUtilities",
+
 			}
 		);
 
@@ -32,6 +33,7 @@ public class MeshUtilities : ModuleRules
 		if (UEBuildConfiguration.bCompileSimplygon == true)
 		{
 			AddThirdPartyPrivateDynamicDependencies(Target, "SimplygonMeshReduction");
+			AddThirdPartyPrivateDynamicDependencies(Target, "PropertyEditor");
 		}
 	}
 }

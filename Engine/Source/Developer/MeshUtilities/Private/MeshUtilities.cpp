@@ -24,6 +24,14 @@
 #include "kDOP.h"
 #endif
 
+//@third party code BEGIN SIMPLYGON
+#include "Materials/MaterialExpressionVertexColor.h"
+#include "Materials/MaterialExpressionTextureSample.h"
+#include "Developer/SimplygonUtilities/Public/SimplygonUtilities.h"
+
+static void ExportStaticMeshLODWithMaterialRemap(const UStaticMesh* StaticMesh, int32 LODIndex, const FStaticMeshLODResources& StaticMeshLOD, FRawMesh& OutRawMesh);
+//@third party code END SIMPLYGON
+
 /*------------------------------------------------------------------------------
 	MeshUtilities module.
 ------------------------------------------------------------------------------*/
@@ -55,6 +63,10 @@ public:
 	FMeshUtilities()
 		: MeshReduction(NULL)
 		, MeshMerging(NULL)
+		//@third party code BEGIN SIMPLYGON 
+		, MeshMaterialReduction(NULL)
+		, SimplygonUtilities(NULL)
+		//@third party code END SIMPLYGON
 	{
 	}
 
@@ -63,6 +75,12 @@ private:
 	IMeshReduction* MeshReduction;
 	/** Cached pointer to the mesh merging interface. */
 	IMeshMerging* MeshMerging;
+	//@third party code BEGIN SIMPLYGON 
+	/* Cached pointer to the mesh material reduction interface*/
+	IMeshMaterialReduction* MeshMaterialReduction;
+	/* Cached pointer to the Simplygon utilities interface*/
+	ISimplygonUtilities* SimplygonUtilities;
+	//@third party code END SIMPLYGON
 	/** Cached version string. */
 	FString VersionString;
 	/** True if Simplygon is being used for mesh reduction. */
@@ -80,10 +98,14 @@ private:
 	virtual bool BuildStaticMesh(
 		FStaticMeshRenderData& OutRenderData,
 		TArray<FStaticMeshSourceModel>& SourceModels,
-		const FStaticMeshLODGroup& LODGroup
+		const FStaticMeshLODGroup& LODGroup,
+		//@third party code BEGIN SIMPLYGON
+		//In order to get access to the materials
+		UStaticMesh* InOwnerMesh
+		//@third party code END SIMPLYGON
 		) override;
 
-	virtual bool GenerateStaticMeshLODs(TArray<FStaticMeshSourceModel>& Models, const FStaticMeshLODGroup& LODGroup) override;
+	virtual bool GenerateStaticMeshLODs(TArray<FStaticMeshSourceModel>& Models, UStaticMesh* InOwner, const FStaticMeshLODGroup& LODGroup) override;
 
 	virtual void GenerateSignedDistanceFieldVolumeData(
 		const FStaticMeshLODResources& LODModel,
@@ -94,10 +116,30 @@ private:
 		bool bGenerateAsIfTwoSided,
 		FDistanceFieldVolumeData& OutData) override;
 
-	virtual bool BuildSkeletalMesh( FStaticLODModel& LODModel, const FReferenceSkeleton& RefSkeleton, const TArray<FVertInfluence>& Influences, const TArray<FMeshWedge>& Wedges, const TArray<FMeshFace>& Faces, const TArray<FVector>& Points, const TArray<int32>& PointToOriginalMap, bool bKeepOverlappingVertices = false, bool bComputeNormals = true, bool bComputeTangents = true, TArray<FText> * OutWarningMessages = NULL, TArray<FName> * OutWarningNames = NULL) override;
+	virtual bool BuildSkeletalMesh(
+		FStaticLODModel& LODModel,
+		const FReferenceSkeleton& RefSkeleton,
+		const TArray<FVertInfluence>& Influences,
+		const TArray<FMeshWedge>& Wedges,
+		const TArray<FMeshFace>& Faces,
+		const TArray<FVector>& Points,
+		const TArray<int32>& PointToOriginalMap,
+		bool bKeepOverlappingVertices = false,
+		bool bComputeNormals = true,
+		bool bComputeTangents = true,
+		TArray<FText> * OutWarningMessages = NULL,
+		TArray<FName> * OutWarningNames = NULL,
+		//@third party code BEGIN SIMPLYGON
+		TArray<int32>* OutSourceWedgeMap = NULL
+		//@third party code END SIMPLYGON
+		) override;
 
 	virtual IMeshReduction* GetMeshReductionInterface() override;
 	virtual IMeshMerging* GetMeshMergingInterface() override;
+	//@third party code BEGIN SIMPLYGON 
+	virtual IMeshMaterialReduction* GetMeshMaterialReductionInterface() override;
+	virtual ISimplygonUtilities* GetSimplygonUtilitiesInterface() override;
+	//@third party code END SIMPLYGON
 	virtual void CacheOptimizeIndexBuffer(TArray<uint16>& Indices) override;
 	virtual void CacheOptimizeIndexBuffer(TArray<uint32>& Indices) override;
 	void CacheOptimizeVertexAndIndexBuffer(TArray<FStaticMeshBuildVertex>& Vertices,TArray<TArray<uint32> >& PerSectionIndices,TArray<int32>& WedgeMap);
@@ -121,7 +163,15 @@ private:
 	 * @param Chunks				Skinned mesh chunks from which to build the renderable model.
 	 * @param PointToOriginalMap	Maps a vertex's RawPointIdx to its index at import time.
 	 */
-	void BuildSkeletalModelFromChunks(FStaticLODModel& LODModel,const FReferenceSkeleton& RefSkeleton,TArray<FSkinnedMeshChunk*>& Chunks,const TArray<int32>& PointToOriginalMap);
+	void BuildSkeletalModelFromChunks(
+		FStaticLODModel& LODModel,
+		const FReferenceSkeleton& RefSkeleton,
+		TArray<FSkinnedMeshChunk*>& Chunks,
+		const TArray<int32>& PointToOriginalMap,
+		//@third party code BEGIN SIMPLYGON
+		TArray<int32>* OutSourceWedgeMap = NULL
+		//@third party code END SIMPLYGON
+		);
 
 	// IModuleInterface interface.
 	virtual void StartupModule() override;
@@ -168,6 +218,13 @@ private:
 		) const;
 
 	virtual void CalculateRawMeshTangents(FRawMesh& OutRawMesh, const FMeshBuildSettings& BuildSettings);
+
+	//@third party code BEGIN SIMPLYGON
+	virtual bool GenerateUniqueUVsForStaticMesh(const FRawMesh& RawMesh, int32 TextureResolution, TArray<FVector2D>& OutTexCoords) override;
+	virtual bool GenerateUniqueUVsForSkeletalMesh(const FStaticLODModel& LODModel, int32 TextureResolution, TArray<FVector2D>& OutTexCoords) override;
+
+	virtual bool SaveRawMeshModels(UStaticMesh* StaticMesh) override;
+	//@third party code END SIMPLYGON
 
 	// Need to call some members from this class, (which is internal to this module)
 	friend class FStaticMeshUtilityBuilder;
@@ -720,8 +777,8 @@ void FMeshUtilities::CacheOptimizeIndexBuffer(TArray<uint16>& Indices)
 {	
 	if(bUsingNvTriStrip)
 	{				
-			NvTriStrip::CacheOptimizeIndexBuffer(Indices);
-		}
+		NvTriStrip::CacheOptimizeIndexBuffer(Indices);
+	}
 	else if( !bDisableTriangleOrderOptimization )
 	{
 		Forsyth::CacheOptimizeIndexBuffer(Indices);
@@ -732,8 +789,8 @@ void FMeshUtilities::CacheOptimizeIndexBuffer(TArray<uint32>& Indices)
 {
 	if(bUsingNvTriStrip)
 	{
-			NvTriStrip::CacheOptimizeIndexBuffer(Indices);
-		}
+		NvTriStrip::CacheOptimizeIndexBuffer(Indices);
+	}
 	else if( !bDisableTriangleOrderOptimization )
 	{		
 		Forsyth::CacheOptimizeIndexBuffer(Indices);
@@ -980,7 +1037,15 @@ void FMeshUtilities::CalcBoneVertInfos(USkeletalMesh* SkeletalMesh, TArray<FBone
  * @param Chunks				Skinned mesh chunks from which to build the renderable model.
  * @param PointToOriginalMap	Maps a vertex's RawPointIdx to its index at import time.
  */
-void FMeshUtilities::BuildSkeletalModelFromChunks(FStaticLODModel& LODModel,const FReferenceSkeleton& RefSkeleton,TArray<FSkinnedMeshChunk*>& Chunks,const TArray<int32>& PointToOriginalMap)
+void FMeshUtilities::BuildSkeletalModelFromChunks(
+	FStaticLODModel& LODModel,
+	const FReferenceSkeleton& RefSkeleton,
+	TArray<FSkinnedMeshChunk*>& Chunks,
+	const TArray<int32>& PointToOriginalMap,
+	//@third party code BEGIN SIMPLYGON
+	TArray<int32>* OutSourceWedgeMap
+	//@third party code END SIMPLYGON
+	)
 {
 #if WITH_EDITORONLY_DATA
 	// Clear out any data currently held in the LOD model.
@@ -1123,6 +1188,12 @@ void FMeshUtilities::BuildSkeletalModelFromChunks(FStaticLODModel& LODModel,cons
 				check (Chunk.BoneMap.IsValidIndex(SoftVertex.InfluenceBones[0]));
 				Chunk.RigidVertices.Add(RigidVertex);
 				ChunkVertexIndexRemap[VertexIndex] = (uint32)(Chunk.BaseVertexIndex + CurrentVertexIndex);
+				//@third party code BEGIN SIMPLYGON
+				if (OutSourceWedgeMap)
+				{
+					OutSourceWedgeMap->Add(SoftVertex.OriginalWedgeIndex);
+				}
+				//@third party code END SIMPLYGON
 				CurrentVertexIndex++;
 				// add the index to the original wedge point source of this vertex
 				RawPointIndices.Add( SoftVertex.PointWedgeIdx );
@@ -1157,6 +1228,12 @@ void FMeshUtilities::BuildSkeletalModelFromChunks(FStaticLODModel& LODModel,cons
 				}
 				Chunk.SoftVertices.Add(NewVertex);
 				ChunkVertexIndexRemap[VertexIndex] = (uint32)(Chunk.BaseVertexIndex + CurrentVertexIndex);
+				//@third party code BEGIN SIMPLYGON
+				if (OutSourceWedgeMap)
+				{
+					OutSourceWedgeMap->Add(SoftVertex.OriginalWedgeIndex);
+				}
+				//@third party code END SIMPLYGON
 				CurrentVertexIndex++;
 				// add the index to the original wedge point source of this vertex
 				RawPointIndices.Add( SoftVertex.PointWedgeIdx );
@@ -2766,7 +2843,12 @@ void FMeshUtilities::CacheOptimizeVertexAndIndexBuffer(
 class FStaticMeshUtilityBuilder
 {
 public:
-	FStaticMeshUtilityBuilder() : Stage(EStage::Uninit), NumValidLODs(0) {}
+	FStaticMeshUtilityBuilder() : Stage(EStage::Uninit), NumValidLODs(0)
+	//@third party code BEGIN SIMPLYGON
+	{
+		FMemory::Memzero(MeshBuilt);
+	}
+	//@third party code END SIMPLYGON
 
 	bool GatherSourceMeshesPerLOD(TArray<FStaticMeshSourceModel>& SourceModels, IMeshReduction* MeshReduction)
 	{
@@ -2795,6 +2877,25 @@ public:
 
 				// Find overlapping corners to accelerate adjacency.
 				FindOverlappingCorners(OverlappingCorners, RawMesh, ComparisonThreshold);
+
+				//@third party code BEGIN SIMPLYGON
+				if (SrcModel.RawMeshBulkData->IsGeneratedWithSimplygon())
+				{
+					// If we have generated RawMesh, we shouldn't rebuild normals, tangents or lightmap UVs.
+					// Ensure to copy BuildSettings from parent LOD. It's especially impoertant for BuildScale3D.
+					const FMeshReductionSettings& ReductionSettings = SrcModel.ReductionSettings;
+					LODBuildSettings[LODIndex] = LODBuildSettings[ReductionSettings.bActive ? ReductionSettings.BaseLODModel : 0];
+					// Disable regeneration of mesh data if this object will be loaded by Unreal engine without Simplygon
+					// integration. These settings will be saved to UStaticMesh in ReplaceGeneratedRawMeshModels().
+					// Note: it is not enough to keep this code only here (should be duplicated in ReplaceGeneratedRawMeshModels)
+					// in a case if we'll have some imported LOD (Index > 0) and will decide to replace it with generated LOD.
+					LODBuildSettings[LODIndex].bRecomputeNormals = false;
+					LODBuildSettings[LODIndex].bRecomputeTangents = false;
+					LODBuildSettings[LODIndex].bGenerateLightmapUVs = false;
+					HasRawMesh[LODIndex] = true;
+					continue;
+				}
+				//@third party code END SIMPLYGON
 
 				// Figure out if we should recompute normals and tangents.
 				bool bRecomputeNormals = SrcModel.BuildSettings.bRecomputeNormals || RawMesh.WedgeTangentZ.Num() != NumWedges;
@@ -2880,7 +2981,7 @@ public:
 		return true;
 	}
 
-	bool ReduceLODs(TArray<FStaticMeshSourceModel>& SourceModels, const FStaticMeshLODGroup& LODGroup, IMeshReduction* MeshReduction, bool& bOutWasReduced)
+	bool ReduceLODs(TArray<FStaticMeshSourceModel>& SourceModels, const FStaticMeshLODGroup& LODGroup, IMeshReduction* MeshReduction, UStaticMesh* InOwnerMesh, bool& bOutWasReduced)
 	{
 		check(Stage == EStage::Gathered);
 
@@ -2889,6 +2990,9 @@ public:
 		{
 			const FStaticMeshSourceModel& SrcModel = SourceModels[LODIndex];
 			FMeshReductionSettings ReductionSettings = LODGroup.GetSettings(SrcModel.ReductionSettings, LODIndex);
+			//@third party code BEGIN SIMPLYGON 
+			FSimplygonRemeshingSettings RemeshingSettings = SrcModel.RemeshingSettings;
+			//@third party code END SIMPLYGON
 			LODMaxDeviation[NumValidLODs] = 0.0f;
 			if (LODIndex != NumValidLODs)
 			{
@@ -2896,13 +3000,100 @@ public:
 				LODOverlappingCorners[NumValidLODs] = LODOverlappingCorners[LODIndex];
 			}
 
-			if (MeshReduction && (ReductionSettings.PercentTriangles < 1.0f || ReductionSettings.MaxDeviation > 0.0f))
+			//@third party code BEGIN SIMPLYGON 
+			// Acquire and reset bForceBuild property
+			bool bForceRebuild = SrcModel.ReductionSettings.bForceRebuild;
+			SourceModels[LODIndex].ReductionSettings.bForceRebuild = false;
+
+			//Check if it's necessary to generate LOD
+			bool bHasOptimizationInterfaces = MeshReduction != NULL;
+			bool bShouldReduce = ReductionSettings.bActive && (ReductionSettings.PercentTriangles < 1.0f || ReductionSettings.MaxDeviation > 0.0f || bForceRebuild);
+			bool bShouldRemesh = RemeshingSettings.bActive;
+			bool bAllowedToOptimizeMesh = bHasOptimizationInterfaces &&
+										  (bShouldReduce || bShouldRemesh);
+
+			int32 GenerateFromLODIndex = ReductionSettings.bActive ? ReductionSettings.BaseLODModel : 0;
+
+			// Check if we need to build this LOD mesh
+			if (HasRawMesh[LODIndex] && !bForceRebuild)
 			{
-				FRawMesh InMesh = LODMeshes[ReductionSettings.BaseLODModel];
+				// This mesh is not necessary to be optimized, we can reuse old mesh
+				bAllowedToOptimizeMesh = false;
+			}
+			if ((LODIndex > 0) && MeshBuilt[GenerateFromLODIndex])
+			{
+				// Parent LOD has been changed, its children should be rebuilt too
+				bAllowedToOptimizeMesh = true;
+			}
+
+			MeshBuilt[LODIndex] = bAllowedToOptimizeMesh;
+
+			if (bAllowedToOptimizeMesh &&
+				bShouldReduce &&
+				!(ReductionSettings.PercentTriangles < 1.0f || ReductionSettings.MaxDeviation > 0.0f) &&
+				!ReductionSettings.MaterialLODSettings.bActive)
+			{
+				// User wants 100% triangles of original mesh, and no material LOD was enabled - so
+				// don't pass anything to Simplygon, just use parent mesh
+				FRawMesh InMesh = LODMeshes[GenerateFromLODIndex];
+				FRawMesh& DestMesh = LODMeshes[NumValidLODs];
+				// Copy data
+				DestMesh = InMesh;
+				LODOverlappingCorners[LODIndex] = LODOverlappingCorners[GenerateFromLODIndex];
+				// Indicate that mesh was reduced to allow caller to build RenderData for it.
+				bOutWasReduced = true;
+				// Remove SectionInfoMap entries for current LOD
+				if (LODIndex > 0)
+				{
+					int32 SectionsToClean = InOwnerMesh->Materials.Num();
+					for (int32 SectionIndex = 0; SectionIndex < SectionsToClean; SectionIndex++)
+					{
+						InOwnerMesh->SectionInfoMap.Remove(LODIndex, SectionIndex);
+					}
+				}
+				// Build new SectionInfoMap, copy data from GenerateFromLODIndex. Not needed when base LOD
+				// index is 0 because this will be handled automatically by SectionInfoMap.
+				if (GenerateFromLODIndex > 0)
+				{
+					// Get number of mapped materials
+					int32 MaxMaterialIndex = -1;
+					for (int32 FaceIndex = 0; FaceIndex < DestMesh.FaceMaterialIndices.Num(); FaceIndex++)
+					{
+						MaxMaterialIndex = FMath::Max<int32>(DestMesh.FaceMaterialIndices[FaceIndex], MaxMaterialIndex);
+					}
+
+					for (int32 Index = 0; Index <= MaxMaterialIndex; ++Index)
+					{
+						// Get section info map using the correct LOD and material index.
+						FMeshSectionInfo Info = InOwnerMesh->SectionInfoMap.Get(GenerateFromLODIndex, Index);
+						// Store the same infor for new LOD.
+						InOwnerMesh->SectionInfoMap.Set(LODIndex, Index, Info);
+					}
+				}
+			}
+			else if (bAllowedToOptimizeMesh)
+			{
+				FRawMesh InMesh = LODMeshes[GenerateFromLODIndex];
+				//@third party code END SIMPLYGON
 				FRawMesh& DestMesh = LODMeshes[NumValidLODs];
 				TMultiMap<int32, int32>& DestOverlappingCorners = LODOverlappingCorners[NumValidLODs];
 
-				MeshReduction->Reduce(DestMesh, LODMaxDeviation[NumValidLODs], InMesh, ReductionSettings);
+				//@third party code BEGIN SIMPLYGON
+				ISimplygonUtilities& SimplygonUtilities = FModuleManager::Get().LoadModuleChecked<ISimplygonUtilities>("SimplygonUtilities");
+				SimplygonUtilities.GenerateLODForStaticMesh(DestMesh, LODMaxDeviation[NumValidLODs], InMesh, InOwnerMesh, LODIndex, ReductionSettings, RemeshingSettings);
+				//MeshReduction->Reduce(DestMesh, LODMaxDeviation[NumValidLODs], InMesh, ReductionSettings);
+
+				// Try repairing lightmap texcoord if broken, this is caused by MaterialLOD. Do that just to make DestMesh.IsValid() happy.
+				int32 NumWedges = DestMesh.WedgeIndices.Num();
+				int32 TexCoordToBuild = -1;
+				TArray<FVector2D>& LightmapTexCoords = DestMesh.WedgeTexCoords[SrcModel.BuildSettings.DstLightmapIndex];
+				if (LightmapTexCoords.Num() != 0 && LightmapTexCoords.Num() != NumWedges)
+				{
+					LightmapTexCoords.Empty(NumWedges);
+					LightmapTexCoords.AddUninitialized(NumWedges);
+					TexCoordToBuild = SrcModel.BuildSettings.DstLightmapIndex;
+				}
+				//@third party code END SIMPLYGON
 				if (DestMesh.WedgeIndices.Num() > 0 && !DestMesh.IsValid())
 				{
 					UE_LOG(LogMeshUtilities, Error, TEXT("Mesh reduction produced a corrupt mesh for LOD%d"), LODIndex);
@@ -2914,6 +3105,29 @@ public:
 				DestOverlappingCorners.Reset();
 				float ComparisonThreshold = GetComparisonThreshold(LODBuildSettings[NumValidLODs]);
 				FindOverlappingCorners(DestOverlappingCorners, DestMesh, ComparisonThreshold);
+
+				//@third party code BEGIN SIMPLYGON
+				// Try regenerate lightmap texcoord if broken
+				if (TexCoordToBuild >= 0)
+				{
+					TArray<FVector2D>& TexCoords = DestMesh.WedgeTexCoords[TexCoordToBuild];
+
+					// We should have this situation only with remeshed static meshes. In this case, we'll have TexCoords[0] generated,
+					// and they should not have overlaps vetween triangles. So we can use TexCoords[0] as lightmap TexCoords.
+					check(SrcModel.RemeshingSettings.bActive);
+					TexCoords.Empty();
+					TexCoords.Append(DestMesh.WedgeTexCoords[0]);
+					/*
+					FLayoutUV Packer( &DestMesh, SrcModel.BuildSettings.SrcLightmapIndex, SrcModel.BuildSettings.DstLightmapIndex, SrcModel.BuildSettings.MinLightmapResolution );
+
+					Packer.FindCharts( DestOverlappingCorners );
+					bool bPackSuccess = Packer.FindBestPacking();
+					if( bPackSuccess )
+					{
+					Packer.CommitPackedUVs();
+					} */
+				}
+				//@third party code END SIMPLYGON
 			}
 
 			if (LODMeshes[NumValidLODs].WedgeIndices.Num() > 0)
@@ -2933,8 +3147,19 @@ public:
 	bool GenerateRenderingMeshes(FMeshUtilities& MeshUtilities, FStaticMeshRenderData& OutRenderData, TArray<FStaticMeshSourceModel>& InOutModels)
 	{
 		check(Stage == EStage::Reduce);
+		//@third party code BEGIN SIMPLYGON
+		// Release old LODResources. We are not generating new DDC file for every mesh settings combination,
+		// so most likely when we're building rendering meshes, older meshes would exist.
+		OutRenderData.LODResources.Empty();
+		//@third party code END SIMPLYGON
 		// Generate per-LOD rendering data.
 		OutRenderData.AllocateLODResources(NumValidLODs);
+
+		//@third party code BEGIN SIMPLYGON
+		// Clear previous LOD data
+		OutRenderData.WedgeMap.Empty();
+		//@third party code END SIMPLYGON
+
 		for (int32 LODIndex = 0; LODIndex < NumValidLODs; ++LODIndex)
 		{
 			FStaticMeshLODResources& LODModel = OutRenderData.LODResources[LODIndex];
@@ -3127,6 +3352,32 @@ public:
 		return true;
 	}
 
+	//@third party code BEGIN SIMPLYGON
+	// This function is similar to ReplaceRawMeshModels, but will additionally check MeshBuilt[] flag.
+	// Using just HasRawMesh[] will not allow to generate LOD model again once it was built.
+	bool ReplaceGeneratedRawMeshModels(TArray<FStaticMeshSourceModel>& SourceModels)
+	{
+		check(Stage == EStage::Reduce);
+
+		check(HasRawMesh[0]);
+		bool bDirty = false;
+		for (int32 Index = 0; Index < NumValidLODs; ++Index)
+		{
+			// Check: currently we should have either generated mesh, or mesh must
+			// have valid data before calling builder.
+			if (MeshBuilt[Index] || !HasRawMesh[Index])
+			{
+				SourceModels[Index].RawMeshBulkData->SaveRawMesh(LODMeshes[Index], /*bGeneratedWithSimplygon=*/ true);
+				bDirty = true;
+			}
+			// Always store BuildSettings. For example, when BuildScale for LOD0 will be changed, LODs will not be
+			// rebuilt, but their BuildSettings will be updated.
+			SourceModels[Index].BuildSettings = LODBuildSettings[Index];
+		}
+		return true;
+	}
+	//@third party code END SIMPLYGON
+
 private:
 	enum class EStage
 	{
@@ -3146,9 +3397,19 @@ private:
 	float LODMaxDeviation[MAX_STATIC_MESH_LODS];
 	FMeshBuildSettings LODBuildSettings[MAX_STATIC_MESH_LODS];
 	bool HasRawMesh[MAX_STATIC_MESH_LODS];
+	//@third party code BEGIN SIMPLYGON
+	bool MeshBuilt[MAX_STATIC_MESH_LODS];
+	//@third party code END SIMPLYGON
 };
 
-bool FMeshUtilities::BuildStaticMesh(FStaticMeshRenderData& OutRenderData, TArray<FStaticMeshSourceModel>& SourceModels, const FStaticMeshLODGroup& LODGroup)
+bool FMeshUtilities::BuildStaticMesh(
+	FStaticMeshRenderData& OutRenderData, 
+	TArray<FStaticMeshSourceModel>& SourceModels, 
+	const FStaticMeshLODGroup& LODGroup,
+	//@third party code BEGIN SIMPLYGON 
+	UStaticMesh* InOwnerMesh
+	//@third party code END SIMPLYGON
+	)
 {
 	FStaticMeshUtilityBuilder Builder;
 	if (!Builder.GatherSourceMeshesPerLOD(SourceModels, MeshReduction))
@@ -3158,16 +3419,26 @@ bool FMeshUtilities::BuildStaticMesh(FStaticMeshRenderData& OutRenderData, TArra
 
 	OutRenderData.bReducedBySimplygon = false;
 	bool bWasReduced = false;
-	if (!Builder.ReduceLODs(SourceModels, LODGroup, MeshReduction, bWasReduced))
+	if (!Builder.ReduceLODs(SourceModels, LODGroup, MeshReduction, InOwnerMesh, bWasReduced))
 	{
 		return false;
 	}
 	OutRenderData.bReducedBySimplygon = (bWasReduced && bUsingSimplygon);
 
+	//@third party code BEGIN SIMPLYGON
+	/*if (bWasReduced)
+	{
+		return Builder.ReplaceRawMeshModels(Models);
+	}*/
+	// Always replace models
+	Builder.ReplaceGeneratedRawMeshModels(SourceModels);
+	//@third party code END SIMPLYGON
+
 	return Builder.GenerateRenderingMeshes(*this, OutRenderData, SourceModels);
 }
 
-bool FMeshUtilities::GenerateStaticMeshLODs(TArray<FStaticMeshSourceModel>& Models, const FStaticMeshLODGroup& LODGroup)
+// Simplygon note: this function is not very useful now as all LODs are already stored to SourceModels now.
+bool FMeshUtilities::GenerateStaticMeshLODs(TArray<FStaticMeshSourceModel>& Models, UStaticMesh* InOwner, const FStaticMeshLODGroup& LODGroup)
 {
 	FStaticMeshUtilityBuilder Builder;
 	if (!Builder.GatherSourceMeshesPerLOD(Models, MeshReduction))
@@ -3176,21 +3447,77 @@ bool FMeshUtilities::GenerateStaticMeshLODs(TArray<FStaticMeshSourceModel>& Mode
 	}
 
 	bool bWasReduced = false;
-	if (!Builder.ReduceLODs(Models, LODGroup, MeshReduction, bWasReduced))
+	if (!Builder.ReduceLODs(Models, LODGroup, MeshReduction, InOwner, bWasReduced))
 	{
 		return false;
 	}
 
 	if (bWasReduced)
 	{
-		return Builder.ReplaceRawMeshModels(Models);
+		//@third party code BEGIN SIMPLYGON
+		//return Builder.ReplaceRawMeshModels(Models);
+		return Builder.ReplaceGeneratedRawMeshModels(Models);
+		//@third party code END SIMPLYGON
 	}
 
 	return false;
 }
 
+//@third party code BEGIN SIMPLYGON
+bool FMeshUtilities::SaveRawMeshModels(UStaticMesh* StaticMesh)
+{
+	FStaticMeshRenderData* RenderData = StaticMesh->RenderData;
+	if (!RenderData)
+	{
+		return false;
+	}
+
+	bool MeshSaved = false;
+	TArray<FStaticMeshSourceModel>& SourceModels = StaticMesh->SourceModels;
+	for (int32 LODIndex = 0; LODIndex < SourceModels.Num(); ++LODIndex)
+	{
+		if (LODIndex >= RenderData->LODResources.Num())
+		{
+			UE_LOG(LogMeshUtilities, Log, TEXT("(Simplygon) (%s) has more SourceModels (%d) compared to LODResources (%d) "), *StaticMesh->GetName(), SourceModels.Num(), RenderData->LODResources.Num());
+			continue;
+		}
+		FStaticMeshSourceModel& SrcModel = SourceModels[LODIndex];
+		if (SrcModel.RawMeshBulkData->IsEmpty())
+		{
+			// This LOD has no valid SourceModel - convert corresponding LOD from RenderData to RawMesh.
+			FRawMesh RawMesh;
+			ExportStaticMeshLODWithMaterialRemap(StaticMesh, LODIndex, RenderData->LODResources[LODIndex], RawMesh);
+			SrcModel.RawMeshBulkData->SaveRawMesh(RawMesh, /*bGeneratedWithSimplygon=*/ true);
+			MeshSaved = true;
+		}
+	}
+	if (MeshSaved)
+	{
+		UE_LOG(LogMeshUtilities, Log, TEXT("(Simplygon) Saved DDC data into SourceModels (%s)"), *StaticMesh->GetName());
+	}
+
+	return true;
+}
+//@third party code END SIMPLYGON
+
 //@TODO: The OutMessages has to be a struct that contains FText/FName, or make it Token and add that as error. Needs re-work. Temporary workaround for now. 
-bool FMeshUtilities::BuildSkeletalMesh( FStaticLODModel& LODModel, const FReferenceSkeleton& RefSkeleton, const TArray<FVertInfluence>& Influences, const TArray<FMeshWedge>& Wedges, const TArray<FMeshFace>& Faces, const TArray<FVector>& Points, const TArray<int32>& PointToOriginalMap, bool bKeepOverlappingVertices, bool bComputeNormals, bool bComputeTangents, TArray<FText> * OutWarningMessages, TArray<FName> * OutWarningNames)
+bool FMeshUtilities::BuildSkeletalMesh(
+	FStaticLODModel& LODModel,
+	const FReferenceSkeleton& RefSkeleton,
+	const TArray<FVertInfluence>& Influences,
+	const TArray<FMeshWedge>& Wedges,
+	const TArray<FMeshFace>& Faces,
+	const TArray<FVector>& Points,
+	const TArray<int32>& PointToOriginalMap,
+	bool bKeepOverlappingVertices,
+	bool bComputeNormals,
+	bool bComputeTangents,
+	TArray<FText> * OutWarningMessages,
+	TArray<FName> * OutWarningNames,
+	//@third party code BEGIN SIMPLYGON
+	TArray<int32>* OutSourceWedgeMap
+	//@third party code END SIMPLYGON
+	)
 {
 #if WITH_EDITORONLY_DATA
 	bool bTooManyVerts = false;
@@ -3551,6 +3878,9 @@ bool FMeshUtilities::BuildSkeletalMesh( FStaticLODModel& LODModel, const FRefere
 
 			// Add the vertex as well as its original index in the points array
 			Vertex.PointWedgeIdx = Wedges[Face.iWedge[VertexIndex]].iVertex;
+			//@third party code BEGIN SIMPLYGON
+			Vertex.OriginalWedgeIndex = Face.iWedge[VertexIndex];
+			//@third party code END SIMPLYGON
 			
 			int32 RawIndex = RawVertices.Add( Vertex );
 
@@ -3572,7 +3902,9 @@ bool FMeshUtilities::BuildSkeletalMesh( FStaticLODModel& LODModel, const FRefere
 	SkeletalMeshTools::ChunkSkinnedVertices(Chunks,MaxGPUSkinBones);
 
 	// Build the skeletal model from chunks.
-	BuildSkeletalModelFromChunks(LODModel,RefSkeleton,Chunks,PointToOriginalMap);
+	//@third party code BEGIN SIMPLYGON
+	BuildSkeletalModelFromChunks(LODModel, RefSkeleton, Chunks, PointToOriginalMap, OutSourceWedgeMap);
+	//@third party code END SIMPLYGON
 
 	if( IsInGameThread() )
 	{
@@ -3973,6 +4305,40 @@ static void ExportStaticMeshLOD(const FStaticMeshLODResources& StaticMeshLOD, FR
 	}
 }
 
+static void ExportStaticMeshLODWithMaterialRemap(const UStaticMesh* StaticMesh, int32 LODIndex, const FStaticMeshLODResources& StaticMeshLOD, FRawMesh& OutRawMesh)
+{
+	// Use ExportStaticMeshLOD function. But this function will return material indices
+	// for UStaticMesh::Materials array, so we need to do some remap to get LOD-local indices.
+
+	ExportStaticMeshLOD(StaticMeshLOD, OutRawMesh);
+
+	// Remap materials
+	TArray<int32> MaterialRemap;
+	MaterialRemap.AddZeroed(StaticMesh->Materials.Num());
+	const TArray<FStaticMeshSection>& Sections = StaticMeshLOD.Sections;
+	for (int32 SectionIndex = 0; SectionIndex < Sections.Num(); SectionIndex++)
+	{
+		const FStaticMeshSection& Section = Sections[SectionIndex];
+		int32 MaterialIndex = 0;
+		for (int32 SectionInfoIndex = 0; SectionInfoIndex < Sections.Num(); SectionInfoIndex++)
+		{
+			FMeshSectionInfo SectionInfo = StaticMesh->SectionInfoMap.Get(LODIndex, SectionInfoIndex);
+			int32 OldMaterialIndex = Section.MaterialIndex;
+			int32 NewMaterialIndex = SectionInfoIndex;
+			if (OldMaterialIndex >= MaterialRemap.Num())
+			{
+				MaterialRemap.SetNumZeroed(OldMaterialIndex + 1);
+			}
+			MaterialRemap[OldMaterialIndex] = NewMaterialIndex;
+		}
+	}
+	int32 NumTris = StaticMeshLOD.GetNumTriangles();
+	for (int32 TriangleIndex = 0; TriangleIndex < NumTris; TriangleIndex++)
+	{
+		OutRawMesh.FaceMaterialIndices[TriangleIndex] = MaterialRemap[OutRawMesh.FaceMaterialIndices[TriangleIndex]];
+	}
+}
+
 bool FMeshUtilities::ConstructRawMesh(
 	UStaticMeshComponent* InMeshComponent,
 	int32 LODIndex,
@@ -4369,8 +4735,8 @@ static void SetTextureRect(const FColor& ColorValue, const FIntPoint& SrcSize, F
 
 struct FRawMeshExt
 {
-	FRawMesh		MeshLOD[MAX_STATIC_MESH_LODS];
-	FString			AssetPackageName;
+	FRawMesh	MeshLOD[MAX_STATIC_MESH_LODS];
+	FString		AssetPackageName;
 	FVector			Pivot;
 	FKAggregateGeom	AggGeom;
 };
@@ -4659,48 +5025,48 @@ void FMeshUtilities::MergeStaticMeshComponents(const TArray<UStaticMeshComponent
 
 	int32 StartLODIndex = 0;
 	if (UseLOD >= 0)
-	{
+			{
 		// Will export only one specified LOD as base mesh
 		StartLODIndex = FMath::Min(UseLOD, NumMaxLOD - 1);
 		NumMaxLOD = StartLODIndex + 1;
-	}
+				}
 
 	MergeProgress.EnterProgressFrame();
 
 	int32 RawMeshLODIdx = 0;
 	for (int32 LODIndex = StartLODIndex; LODIndex < NumMaxLOD; ++LODIndex, ++RawMeshLODIdx)
-	{
+				{
 		for (int32 MeshId = 0; MeshId < ComponentsToMerge.Num(); ++MeshId)
-		{
-			UStaticMeshComponent* MeshComponent = ComponentsToMerge[MeshId];
+	{
+				UStaticMeshComponent* MeshComponent = ComponentsToMerge[MeshId];
 
-			TArray<int32> MeshMaterialMap;
+				TArray<int32> MeshMaterialMap;
 			FRawMesh& RawMeshLOD = SourceMeshes[MeshId].MeshLOD[RawMeshLODIdx];
 
-			// We duplicate lower LOD in case this mesh has no LOD we want
+				// We duplicate lower LOD in case this mesh has no LOD we want
 			int32 ExportLODIndex = FMath::Min(LODIndex, MeshComponent->StaticMesh->SourceModels.Num() - 1);
 
 			if (ConstructRawMesh(MeshComponent, ExportLODIndex, RawMeshLOD, UniqueMaterials, MeshMaterialMap))
-			{
+				{
 				MaterialMap.Add(FMeshIdAndLOD(MeshId, RawMeshLODIdx), MeshMaterialMap);
 
-				// Should we use vertex colors?
+					// Should we use vertex colors?
 				if (InSettings.bImportVertexColors)
-				{
-					// Propagate painted vertex colors into our raw mesh
+					{
+						// Propagate painted vertex colors into our raw mesh
 					PropagatePaintedColorsToRawMesh(MeshComponent, ExportLODIndex, RawMeshLOD);
-					// Whether at least one of the meshes has vertex colors
+						// Whether at least one of the meshes has vertex colors
 					bWithVertexColors[RawMeshLODIdx] |= (RawMeshLOD.WedgeColors.Num() != 0);
-				}
+					}
 
-				// Which UV channels has data at least in one mesh
+					// Which UV channels has data at least in one mesh
 				for (int32 ChannelIdx = 0; ChannelIdx < MAX_MESH_TEXTURE_COORDS; ++ChannelIdx)
-				{
+					{
 					bOcuppiedUVChannels[RawMeshLODIdx][ChannelIdx] |= (RawMeshLOD.WedgeTexCoords[ChannelIdx].Num() != 0);
+					}
 				}
 			}
 		}
-	}
 
 	if (InSettings.bMergePhysicsData)
 	{
@@ -4713,7 +5079,7 @@ void FMeshUtilities::MergeStaticMeshComponents(const TArray<UStaticMeshComponent
 			if (BodySetupSource == nullptr)
 			{
 				BodySetupSource = MeshComponent->StaticMesh->BodySetup;
-			}
+	}
 		}
 	}
 
@@ -4746,13 +5112,13 @@ void FMeshUtilities::MergeStaticMeshComponents(const TArray<UStaticMeshComponent
 	{
 		MergeProgress.EnterProgressFrame();
 
-		FIntPoint AtlasTextureSize = FIntPoint(InSettings.MergedMaterialAtlasResolution, InSettings.MergedMaterialAtlasResolution);
+		FIntPoint AtlasTextureSize			= FIntPoint(InSettings.MergedMaterialAtlasResolution, InSettings.MergedMaterialAtlasResolution);
 		FFlattenMaterial MergedFlatMaterial;
-		MergedFlatMaterial.DiffuseSize = AtlasTextureSize;
-		MergedFlatMaterial.NormalSize = InSettings.bExportNormalMap ? AtlasTextureSize : FIntPoint::ZeroValue;
-		MergedFlatMaterial.MetallicSize = InSettings.bExportMetallicMap ? AtlasTextureSize : FIntPoint::ZeroValue;
-		MergedFlatMaterial.RoughnessSize = InSettings.bExportRoughnessMap ? AtlasTextureSize : FIntPoint::ZeroValue;
-		MergedFlatMaterial.SpecularSize = InSettings.bExportSpecularMap ? AtlasTextureSize : FIntPoint::ZeroValue;
+		MergedFlatMaterial.DiffuseSize		= AtlasTextureSize;
+		MergedFlatMaterial.NormalSize		= InSettings.bExportNormalMap ? AtlasTextureSize : FIntPoint::ZeroValue;
+		MergedFlatMaterial.MetallicSize		= InSettings.bExportMetallicMap ? AtlasTextureSize : FIntPoint::ZeroValue;
+		MergedFlatMaterial.RoughnessSize	= InSettings.bExportRoughnessMap ? AtlasTextureSize : FIntPoint::ZeroValue;
+		MergedFlatMaterial.SpecularSize		= InSettings.bExportSpecularMap ? AtlasTextureSize : FIntPoint::ZeroValue;
 		TArray<FRawMeshUVTransform> UVTransforms;
 
 		MergeMaterials(World, UniqueMaterials, MergedFlatMaterial, UVTransforms);
@@ -5063,6 +5429,23 @@ IMeshMerging* FMeshUtilities::GetMeshMergingInterface()
 	return MeshMerging;
 }
 
+//@third party code BEGIN SIMPLYGON 
+/*------------------------------------------------------------------------------
+Mesh Material Reduction.
+------------------------------------------------------------------------------*/
+IMeshMaterialReduction* FMeshUtilities::GetMeshMaterialReductionInterface()
+{
+	return MeshMaterialReduction;
+}
+/*------------------------------------------------------------------------------
+Simplygon utilities.
+------------------------------------------------------------------------------*/
+ISimplygonUtilities* FMeshUtilities::GetSimplygonUtilitiesInterface()
+{
+	return SimplygonUtilities;
+}
+//@third party code END SIMPLYGON
+
 /*------------------------------------------------------------------------------
 	Module initialization / teardown.
 ------------------------------------------------------------------------------*/
@@ -5074,10 +5457,68 @@ void FMeshUtilities::StartupModule()
 
 	// Look for a mesh reduction module.
 	{
-		TArray<FName> ModuleNames;
+		TArray<FName> ModuleNames; 
 		FModuleManager::Get().FindModules(TEXT("*MeshReduction"), ModuleNames);
+		
+		//@third party code BEGIN SIMPLYGON
+		TArray<FName> SimplygonModuleNames;	// used only in "if" statement below
+		FModuleManager::Get().FindModules(TEXT("*SimplygonMeshReduction"), SimplygonModuleNames);
+		
+		if (SimplygonModuleNames.Num())
+		{
+			for (int32 Index = 0; Index < ModuleNames.Num(); Index++)
+			{
+				ISimplygonModule& SimplygonModule = FModuleManager::LoadModuleChecked<ISimplygonModule>(ModuleNames[Index]);
 
-		if (ModuleNames.Num())
+				// Look for MeshReduction interface
+				if (MeshReduction == NULL)
+				{
+					MeshReduction = SimplygonModule.GetMeshReductionInterface();
+					if (MeshReduction)
+					{
+						UE_LOG(LogMeshUtilities, Log, TEXT("Using %s for automatic mesh reduction"), *ModuleNames[Index].ToString());
+					}
+				}
+
+				// Look for MeshMerging interface
+				if (MeshMerging == NULL)
+				{
+					MeshMerging = SimplygonModule.GetMeshMergingInterface();
+					if (MeshMerging)
+					{
+						UE_LOG(LogMeshUtilities, Log, TEXT("Using %s for automatic mesh merging"), *ModuleNames[Index].ToString());
+					}
+				}
+
+				//Look for simplygon specific interfaces
+				if (MeshMaterialReduction == NULL)
+				{
+
+					MeshMaterialReduction = SimplygonModule.GetMeshMaterialReductionInterface();
+					if (MeshMaterialReduction)
+					{
+						UE_LOG(LogMeshUtilities, Log, TEXT("Using %s for material merging"), *ModuleNames[Index].ToString());
+					}
+				}
+
+				// Break early if both interfaces were found
+				if (MeshReduction && MeshMerging && MeshMaterialReduction)
+				{
+					break;
+				}
+			}
+
+			if (SimplygonUtilities == NULL)
+			{
+				SimplygonUtilities = FModuleManager::LoadModulePtr<ISimplygonUtilities>(TEXT("SimplygonUtilities"));
+				if (SimplygonUtilities)
+				{
+					UE_LOG(LogMeshUtilities, Log, TEXT("Using %s for automatic mesh reduction"), TEXT("SimplygonUtilities"));
+				}
+			}
+		}
+		//@third party code END SIMPLYGON
+		else if (ModuleNames.Num())
 		{
 			for (int32 Index = 0; Index < ModuleNames.Num(); Index++)
 			{
@@ -5143,5 +5584,100 @@ void FMeshUtilities::ShutdownModule()
 	VersionString.Empty();
 }
 
+//@third party code BEGIN SIMPLYGON
+bool FMeshUtilities::GenerateUniqueUVsForStaticMesh(const FRawMesh& RawMesh, int32 TextureResolution, TArray<FVector2D>& OutTexCoords)
+{
+	// Create a copy of original mesh
+	FRawMesh TempMesh = RawMesh;
 
+	// Find overlapping corners for UV generator. Allow some threshold - this should not produce any error in a case if resulting
+	// mesh will not merge these vertices.
+	TMultiMap<int32, int32> OverlappingCorners;
+	FindOverlappingCorners(OverlappingCorners, RawMesh, THRESH_POINTS_ARE_SAME);
+
+	// Generate new UVs
+	FLayoutUV Packer(&TempMesh, 0, 1, FMath::Clamp(TextureResolution / 4, 32, 512));
+	Packer.FindCharts(OverlappingCorners);
+
+	bool bPackSuccess = Packer.FindBestPacking();
+	if (bPackSuccess)
+	{
+		Packer.CommitPackedUVs();
+		// Save generated UVs
+		OutTexCoords = TempMesh.WedgeTexCoords[1];
+	}
+	return bPackSuccess;
+}
+
+bool FMeshUtilities::GenerateUniqueUVsForSkeletalMesh(const FStaticLODModel& LODModel, int32 TextureResolution, TArray<FVector2D>& OutTexCoords)
+{
+	// Get easy to use SkeletalMesh data
+	TArray<FSoftSkinVertex> Vertices;
+	FMultiSizeIndexContainerData IndexData;
+	LODModel.GetVertices(Vertices);
+	LODModel.MultiSizeIndexContainer.GetIndexBufferData(IndexData);
+
+	int32 NumCorners = IndexData.Indices.Num();
+
+	// Generate FRawMesh from FStaticLODModel
+	FRawMesh TempMesh;
+	TempMesh.WedgeIndices.AddUninitialized(NumCorners);
+	TempMesh.WedgeTexCoords[0].AddUninitialized(NumCorners);
+	TempMesh.VertexPositions.AddUninitialized(NumCorners);
+
+	// Prepare vertex to wedge map
+	// PrevCorner[i] points to previous corner which shares the same wedge
+	TArray<int32> LastWedgeCorner;
+	LastWedgeCorner.AddUninitialized(Vertices.Num());
+	TArray<int32> PrevCorner;
+	PrevCorner.AddUninitialized(NumCorners);
+	for (int32 Index = 0; Index < Vertices.Num(); Index++)
+	{
+		LastWedgeCorner[Index] = -1;
+	}
+
+	for (int32 Index = 0; Index < NumCorners; Index++)
+	{
+		// Copy static vertex data
+		int32 VertexIndex = IndexData.Indices[Index];
+		FSoftSkinVertex& Vertex = Vertices[VertexIndex];
+		TempMesh.WedgeIndices[Index] = Index; // rudimental data, not really used by FLayoutUV - but array size matters
+		TempMesh.WedgeTexCoords[0][Index] = Vertex.UVs[0];
+		TempMesh.VertexPositions[Index] = Vertex.Position;
+		// Link all corners belonging to a single wedge into list
+		int32 PrevCornerIndex = LastWedgeCorner[VertexIndex];
+		LastWedgeCorner[VertexIndex] = Index;
+		PrevCorner[Index] = PrevCornerIndex;
+	}
+
+	//	return GenerateUniqueUVsForStaticMesh(TempMesh, TextureResolution, OutTexCoords);
+
+	// Build overlapping corners map
+	TMultiMap<int32, int32> OverlappingCorners;
+	for (int32 Index = 0; Index < NumCorners; Index++)
+	{
+		int VertexIndex = IndexData.Indices[Index];
+		for (int32 CornerIndex = LastWedgeCorner[VertexIndex]; CornerIndex >= 0; CornerIndex = PrevCorner[CornerIndex])
+		{
+			if (CornerIndex != Index)
+			{
+				OverlappingCorners.Add(Index, CornerIndex);
+			}
+		}
+	}
+
+	// Generate new UVs
+	FLayoutUV Packer(&TempMesh, 0, 1, FMath::Clamp(TextureResolution / 4, 32, 512));
+	Packer.FindCharts(OverlappingCorners);
+
+	bool bPackSuccess = Packer.FindBestPacking();
+	if (bPackSuccess)
+	{
+		Packer.CommitPackedUVs();
+		// Save generated UVs
+		OutTexCoords = TempMesh.WedgeTexCoords[1];
+	}
+	return bPackSuccess;
+}
+//@third party code END SIMPLYGON
 #undef LOCTEXT_NAMESPACE

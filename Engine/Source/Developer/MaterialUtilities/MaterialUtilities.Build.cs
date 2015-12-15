@@ -14,19 +14,28 @@ public class MaterialUtilities : ModuleRules
 				"Engine",
 				"RenderCore",
                 "RHI",
-                "Landscape"
+                "Landscape",
+				//@third party code BEGIN SIMPLYGON
+				"ShaderCore",
+                "SimplygonUtilities",
+				"UnrealEd" // for CreateMaterialTemplate
+				//@third party code END SIMPLYGON
 			}
 		);
 
         PrivateIncludePathModuleNames.AddRange(
             new string[] {
-                "Landscape"
+                "Landscape",
+				//@third party code BEGIN SIMPLYGON
+                "SimplygonUtilities"
+				//@third party code END SIMPLYGON
 			}
         );
 
         CircularlyReferencedDependentModules.AddRange(
             new string[] {
-                "Landscape"
+                "Landscape",
+                "SimplygonUtilities"
             }
         );
 	}

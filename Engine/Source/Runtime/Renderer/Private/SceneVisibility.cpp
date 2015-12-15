@@ -271,14 +271,14 @@ static int32 FrustumCull(const FScene* Scene, FViewInfo& View)
 		{
 			QUICK_SCOPE_CYCLE_COUNTER(STAT_FrustumCull_Loop);
 			const int32 BitArrayNumInner = View.PrimitiveVisibilityMap.Num();
-			FVector ViewOriginForDistanceCulling = View.ViewMatrices.ViewOrigin;
-			float FadeRadius = GDisableLODFade ? 0.0f : GDistanceFadeMaxTravel;
-			uint8 CustomVisibilityFlags = EOcclusionFlags::CanBeOccluded | EOcclusionFlags::HasPrecomputedVisibility;
+	FVector ViewOriginForDistanceCulling = View.ViewMatrices.ViewOrigin;
+	float FadeRadius = GDisableLODFade ? 0.0f : GDistanceFadeMaxTravel;
+	uint8 CustomVisibilityFlags = EOcclusionFlags::CanBeOccluded | EOcclusionFlags::HasPrecomputedVisibility;
 
 			const int32 TaskWordOffset = TaskIndex * FrustumCullNumWordsPerTask;
 
 			for (int32 WordIndex = TaskWordOffset; WordIndex < TaskWordOffset + FrustumCullNumWordsPerTask && WordIndex * NumBitsPerDWORD < BitArrayNumInner; WordIndex++)
-			{
+	{
 				uint32 Mask = 0x1;
 				uint32 VisBits = 0;
 				uint32 FadingBits = 0;
@@ -286,48 +286,48 @@ static int32 FrustumCull(const FScene* Scene, FViewInfo& View)
 				{
 					int32 Index = WordIndex * NumBitsPerDWORD + BitSubIndex;
 					const FPrimitiveBounds& Bounds = Scene->PrimitiveBounds[Index];
-					float DistanceSquared = (Bounds.Origin - ViewOriginForDistanceCulling).SizeSquared();
-					float MaxDrawDistance = Bounds.MaxDrawDistance * MaxDrawDistanceScale;
-					int32 VisibilityId = INDEX_NONE;
+		float DistanceSquared = (Bounds.Origin - ViewOriginForDistanceCulling).SizeSquared();
+		float MaxDrawDistance = Bounds.MaxDrawDistance * MaxDrawDistanceScale;
+		int32 VisibilityId = INDEX_NONE;
 
-					if (UseCustomCulling &&
+		if (UseCustomCulling &&
 						((Scene->PrimitiveOcclusionFlags[Index] & CustomVisibilityFlags) == CustomVisibilityFlags))
-					{
+		{
 						VisibilityId = Scene->PrimitiveVisibilityIds[Index].ByteIndex;
-					}
+		}
 
-					// If cull distance is disabled, always show (except foliage)
-					if (View.Family->EngineShowFlags.DistanceCulledPrimitives
+		// If cull distance is disabled, always show (except foliage)
+		if (View.Family->EngineShowFlags.DistanceCulledPrimitives
 						&& !Scene->Primitives[Index]->Proxy->IsDetailMesh())
-					{
-						MaxDrawDistance = FLT_MAX;
-					}
+		{
+			MaxDrawDistance = FLT_MAX;
+		}
 
-					// The primitive is always culled if it exceeds the max fade distance or lay outside the view frustum.
-					if (DistanceSquared > FMath::Square(MaxDrawDistance + FadeRadius) ||
+		// The primitive is always culled if it exceeds the max fade distance or lay outside the view frustum.
+		if (DistanceSquared > FMath::Square(MaxDrawDistance + FadeRadius) ||
 						DistanceSquared < Bounds.MinDrawDistanceSq || 
-						(UseCustomCulling && !View.CustomVisibilityQuery->IsVisible(VisibilityId, FBoxSphereBounds(Bounds.Origin, Bounds.BoxExtent, Bounds.SphereRadius))) ||
+			(UseCustomCulling && !View.CustomVisibilityQuery->IsVisible(VisibilityId, FBoxSphereBounds(Bounds.Origin, Bounds.BoxExtent, Bounds.SphereRadius))) ||
 						(bAlsoUseSphereTest && View.ViewFrustum.IntersectSphere(Bounds.Origin, Bounds.SphereRadius) == false) ||
-						View.ViewFrustum.IntersectBox(Bounds.Origin, Bounds.BoxExtent) == false)
-					{
+			View.ViewFrustum.IntersectBox(Bounds.Origin, Bounds.BoxExtent) == false)
+		{
 						STAT(NumCulledPrimitives.Increment());
-					}
+		}
 					else
 					{
-						if (DistanceSquared > FMath::Square(MaxDrawDistance))
-						{
+		if (DistanceSquared > FMath::Square(MaxDrawDistance))
+		{
 							FadingBits |= Mask;
-						}
-						else
-						{
-							// The primitive is visible!
+		}
+		else
+		{
+			// The primitive is visible!
 							VisBits |= Mask;
-							if (DistanceSquared > FMath::Square(MaxDrawDistance - FadeRadius))
-							{
+			if (DistanceSquared > FMath::Square(MaxDrawDistance - FadeRadius))
+			{
 								FadingBits |= Mask;
-							}
-						}
-					}
+			}
+		}
+	}
 				}
 				if (FadingBits)
 				{
@@ -1567,13 +1567,13 @@ void FSceneRenderer::PreVisibilityFrameSetup(FRHICommandListImmediate& RHICmdLis
 				{
 					View.ViewMatrices.TranslatedViewProjectionMatrix = View.ViewProjectionMatrix;
 					View.ViewMatrices.InvTranslatedViewProjectionMatrix = View.InvViewProjectionMatrix;
-				}
+			}
 				else
 				{
 					ensure( View.ViewMatrices.TranslatedViewMatrix.GetOrigin().IsNearlyZero() );
 					View.ViewMatrices.TranslatedViewProjectionMatrix = View.ViewMatrices.TranslatedViewMatrix * View.ViewMatrices.ProjMatrix;
 					View.ViewMatrices.InvTranslatedViewProjectionMatrix = View.ViewMatrices.GetInvProjMatrix() * View.ViewMatrices.TranslatedViewMatrix.GetTransposed();
-				}
+		}
 			}
 		}
 		else if(ViewState)
@@ -1814,11 +1814,11 @@ void FSceneRenderer::ComputeViewVisibility(FRHICommandListImmediate& RHICmdList)
 				if (CVarAlsoUseSphereForFrustumCull.GetValueOnRenderThread())
 				{
 					NumCulledPrimitivesForView = FrustumCull<true, true>(Scene, View);
-				}
-				else
-				{
+			}
+			else
+			{
 					NumCulledPrimitivesForView = FrustumCull<true, false>(Scene, View);
-				}
+			}
 			}
 			else
 			{
@@ -1846,6 +1846,43 @@ void FSceneRenderer::ComputeViewVisibility(FRHICommandListImmediate& RHICmdList)
 				}
 			}
 		}
+
+		//@third party code BEGIN SIMPLYGON
+#if SG_ENABLE_DEPRECATED_MASSIVELOD
+		for (FSceneSetBitIterator BitIt(View.PrimitiveVisibilityMap); BitIt; ++BitIt)
+		{
+			FPrimitiveSceneInfo* PrimitiveSceneInfo = Scene->Primitives[BitIt.GetIndex()];
+			const FMarkRelevantStaticMeshesForViewData ViewData(View);
+
+			//Used for MassiveLOD switches
+			bool bHasPrimitiveReplacement = PrimitiveSceneInfo->ReplacementPrimitive != NULL;
+			bool bIsAPrimitiveReplacement = PrimitiveSceneInfo->MassiveLODSizeOnScreen > 0.f;
+
+			bool bShouldDraw = true;
+			if (bHasPrimitiveReplacement)
+			{
+				UPrimitiveComponent* ReplacementPrim = PrimitiveSceneInfo->ReplacementPrimitive;
+				if (ReplacementPrim)
+				{
+					float CameraDistanceToReplacementParent = ReplacementPrim->Bounds.GetBox().ComputeSquaredDistanceToPoint(ViewData.ViewOrigin);
+					float MassiveLODSwitchDistance = ComputeMassiveLODSwitchDistance(View, ReplacementPrim->MassiveLODSizeOnScreen, ReplacementPrim->Bounds.SphereRadius);
+					bShouldDraw = (MassiveLODSwitchDistance > CameraDistanceToReplacementParent);
+				}
+			}
+			else if (bIsAPrimitiveReplacement)
+			{
+				float CameraDistanceToChild = PrimitiveSceneInfo->Proxy->GetBounds().GetBox().ComputeSquaredDistanceToPoint(ViewData.ViewOrigin);
+				float MassiveLODSwitchDistance = ComputeMassiveLODSwitchDistance(View, PrimitiveSceneInfo->MassiveLODSizeOnScreen, PrimitiveSceneInfo->Proxy->GetBounds().SphereRadius);
+				bShouldDraw = (MassiveLODSwitchDistance <= CameraDistanceToChild);
+			}
+
+			if (!bShouldDraw)
+			{
+				View.PrimitiveVisibilityMap.AccessCorrespondingBit(BitIt) = false;
+			}
+		}
+#endif
+		//@third party code END SIMPLYGON
 
 		if (View.bStaticSceneOnly)
 		{

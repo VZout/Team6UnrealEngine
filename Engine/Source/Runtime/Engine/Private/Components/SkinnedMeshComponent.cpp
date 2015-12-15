@@ -149,10 +149,10 @@ namespace FAnimUpdateRateManager
 			{
 				const float& DistanceFactorThreadhold = Tracker->UpdateRateParameters.BaseVisibleDistanceFactorThesholds[Index];
 				if (MaxDistanceFactor > DistanceFactorThreadhold)
-				{
+			{
 					DesiredEvaluationRate = Index + 1;
 					break;
-				}
+			}
 			}
 
 			if (bUsingRootMotionFromEverything && DesiredEvaluationRate > 1)
@@ -231,7 +231,7 @@ void USkinnedMeshComponent::OnRegister()
 	}
 	else
 	{
-		AllocateTransformData();
+	AllocateTransformData();
 	}
 
 	Super::OnRegister();
@@ -352,10 +352,13 @@ void USkinnedMeshComponent::SendRenderDynamicData_Concurrent()
 		int32 UseLOD = PredictedLODLevel;
 
 		// Are morph targets disabled for this LOD?
-		if ( SkeletalMesh->LODInfo[ UseLOD ].bHasBeenSimplified || bDisableMorphTarget )
+		//@third party code BEGIN SIMPLYGON
+		//Simplygon supports morph target..
+		if ( bDisableMorphTarget )
 		{
 			ActiveVertexAnims.Empty();
 		}
+		//@third party code BEGIN SIMPLYGON
 
 		MeshObject->Update(UseLOD,this,ActiveVertexAnims);  // send to rendering thread
 		MeshObject->bHasBeenUpdatedAtLeastOnce = true;
@@ -1810,7 +1813,7 @@ bool USkinnedMeshComponent::UpdateLODStatus()
 	if(MeshObject)
 	{
 		MaxDistanceFactor = MeshObject->MaxDistanceFactor;
-	}
+		}
 
 	return bLODChanged;
 }

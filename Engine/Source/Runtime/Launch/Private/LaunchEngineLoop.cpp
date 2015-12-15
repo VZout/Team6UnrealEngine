@@ -1347,6 +1347,10 @@ int32 FEngineLoop::PreInit( const TCHAR* CmdLine )
 	FEngineFontServices::Create();
 #endif
 	
+	//@third party code BEGIN SIMPLYGON
+	//FModuleManager::Get().LoadModule(TEXT("SimplygonUtilities"));
+	//@third party code END SIMPLYGON
+
 	FScopedSlowTask SlowTask(100, NSLOCTEXT("EngineLoop", "EngineLoop_Initializing", "Initializing..."));
 
 	SlowTask.EnterProgressFrame(10);

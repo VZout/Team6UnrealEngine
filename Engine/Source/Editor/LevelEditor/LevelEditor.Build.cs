@@ -85,7 +85,10 @@ public class LevelEditor : ModuleRules
 				"UserFeedback",
 				"ReferenceViewer",
 				"SizeMap",
-                "IntroTutorials"
+                "IntroTutorials",
+				//@third party code BEGIN SIMPLYGON
+				"SimplygonUtilities",
+				//@third party code END SIMPLYGON
 			}
 		);
 	}

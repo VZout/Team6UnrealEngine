@@ -33,6 +33,9 @@ public:
 		, BatchedElementParameters( nullptr )
 		, Color( FLinearColor::White ) {};
 
+	virtual ~FCanvasItem()
+	{}
+
 	virtual void Draw( FCanvas* InCanvas ) = 0;
 
 	/** 

@@ -15,7 +15,10 @@
 #include "SkeletalMesh.generated.h"
 
 /** The maximum number of skeletal mesh LODs allowed. */
-#define MAX_SKELETAL_MESH_LODS 5
+//@third party code BEGIN SIMPLYGON
+//Increased max number of LODs
+#define MAX_SKELETAL_MESH_LODS 10  
+//@third party code END SIMPLYGON
 
 class UMorphTarget;
 class USkeleton;
@@ -219,19 +222,40 @@ struct FSkeletalMeshOptimizationSettings
 		TArray<FBoneReference> BonesToRemove;
 
 
+	//@third party code BEGIN SIMPLYGON
+	UPROPERTY()
+	int32 BaseLODModel;
+
+	UPROPERTY()
+	int32 LODChainLastIndex;
+
+	/** This is a transient property used to pass "force build" option from UI to FLODUtilities */
+	UPROPERTY(Transient)
+	bool bForceRebuild;
+
+	/* The following will store material lod setting.*/
+	UPROPERTY(EditAnywhere, Category=ReductionSettings)
+	FSimplygonMaterialLODSettings MaterialLODSettings;
+	//@third party code END SIMPLYGON
+
 	FSkeletalMeshOptimizationSettings()
 		: ReductionMethod(SMOT_MaxDeviation)
 		, NumOfTrianglesPercentage(1.0f)
 		, MaxDeviationPercentage(0)
-		, WeldingThreshold(0.1f)
+		, WeldingThreshold(0.0f)
 		, bRecalcNormals(true)
 		, NormalsThreshold(60.0f)
 		, SilhouetteImportance(SMOI_Normal)
 		, TextureImportance(SMOI_Normal)
 		, ShadingImportance(SMOI_Normal)
 		, SkinningImportance(SMOI_Normal)
-		, BoneReductionRatio(100.0f)
+		, BoneReductionRatio(1.0f)
 		, MaxBonesPerVertex(4)
+		//@third party code BEGIN SIMPLYGON
+		, BaseLODModel(0)
+		, LODChainLastIndex(0)
+		, bForceRebuild(false)
+		//@third party code END SIMPLYGON
 	{
 	}
 
@@ -271,7 +295,13 @@ struct FSkeletalMeshOptimizationSettings
 			&& SkinningImportance == Other.SkinningImportance
 			&& bRecalcNormals == Other.bRecalcNormals
 			&& BoneReductionRatio == Other.BoneReductionRatio
-			&& MaxBonesPerVertex == Other.MaxBonesPerVertex;
+			&& MaxBonesPerVertex == Other.MaxBonesPerVertex
+			//@third party code BEGIN SIMPLYGON
+			&& BaseLODModel == Other.BaseLODModel
+			&& LODChainLastIndex == Other.LODChainLastIndex
+			// && MaterialLODSettings == Other.MaterialLODSettings - intentionally not compared
+			//@third party code END SIMPLYGON
+			;
 	}
 
 	/** Inequality. */
@@ -313,6 +343,12 @@ struct FSkeletalMeshLODInfo
 	/** Reduction settings to apply when building render data. */
 	UPROPERTY(EditAnywhere, Category = ReductionSettings)
 	FSkeletalMeshOptimizationSettings ReductionSettings;
+
+	//@third party code BEGIN SIMPLYGON
+	/** Remeshing settings to apply when building render data. */
+	UPROPERTY(EditAnywhere, Category=RemeshingSettings)
+	FSimplygonRemeshingSettings RemeshingSettings;
+	//@third party code END SIMPLYGON
 
 	FSkeletalMeshLODInfo()
 		: ScreenSize(0)
