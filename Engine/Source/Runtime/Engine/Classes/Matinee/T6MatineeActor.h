@@ -7,7 +7,7 @@
 #include "MatineeActor.h"
 #include "T6MatineeActor.generated.h"
 
-UCLASS(Blueprintable)
+UCLASS(MinimalAPI, Blueprintable)
 class AT6MatineeActor : public AMatineeActor{
 	GENERATED_BODY()
 
