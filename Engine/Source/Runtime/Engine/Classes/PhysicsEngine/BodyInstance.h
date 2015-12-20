@@ -277,6 +277,8 @@ protected:
 
 	uint32 bHasSharedShapes : 1;
 
+	uint32 DominanceGroup : 5;
+
 	/** The maximum velocity used to depenetrate this object*/
 	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadOnly, Category = Physics, meta = (editcondition = "bOverrideMaxDepenetrationVelocity", ClampMin = "0.0", UIMin = "0.0"))
 	float MaxDepenetrationVelocity;
@@ -416,6 +418,12 @@ public:
 #endif
 
 #if UE_WITH_PHYSICS
+	// T6
+	void SetDominanceGroup(int Group);
+	void SetDominanceGroupPair(int Group1, float Dominance1, int Group2, float Dominance2);	// Lelijk hier
+	
+	// \T6
+
 	/** Initialise a single rigid body (this FBodyInstance) for the given body setup
 	 *	@param Setup The setup to use to create the body
 	 *	@param Transform Transform of the body

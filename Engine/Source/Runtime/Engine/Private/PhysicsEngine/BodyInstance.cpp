@@ -1066,6 +1066,7 @@ struct FInitBodiesHelper
 		else
 		{
 			PNewDynamic = GPhysXSDK->createRigidDynamic(PTransform);
+			//PNewDynamic->setDominanceGroup(this->Bodies[0]->DominanceGroup);
 			if (Instance->UseAsyncScene(PhysScene))
 			{
 				Instance->RigidActorAsync = PNewDynamic;
@@ -1574,6 +1575,24 @@ struct FInitBodiesHelper
 
 };
 
+void FBodyInstance::SetDominanceGroup(int Group){
+	GetPxRigidDynamic_AssumesLocked()->setDominanceGroup(Group);
+}
+
+void FBodyInstance::SetDominanceGroupPair(int Group1, float Dominance1, int Group2, float Dominance2){
+	int16 Indices[2];
+	Indices[0] = SceneIndexSync;
+	Indices[1] = SceneIndexAsync;
+
+	for (int i = 0; i < 2; i++){
+		PxScene* Scene = GetPhysXSceneFromIndex(Indices[i]);
+
+		if (Scene){
+			Scene->setDominanceGroupPair(Group1, Group2, PxDominanceGroupPair(Dominance1, Dominance2));
+		}
+	}
+}
+
 void FBodyInstance::InitBody(class UBodySetup* Setup, const FTransform& Transform, class UPrimitiveComponent* PrimComp, class FPhysScene* InRBScene, PhysXAggregateType InAggregate /*= NULL*/)
 {
 	SCOPE_CYCLE_COUNTER(STAT_InitBody);
@@ -1587,6 +1606,11 @@ void FBodyInstance::InitBody(class UBodySetup* Setup, const FTransform& Transfor
 
 	FInitBodiesHelper<false> InitBodiesHelper(Bodies, Transforms, Setup, PrimComp, InRBScene, InAggregate);
 	InitBodiesHelper.InitBodies();
+
+	// T6
+	/*for (int i = 0; i < Bodies.Num(); i++){
+		Bodies[i]->SetDominanceGroup(DominanceGroup);
+	}*/
 }
 
 TSharedPtr<TArray<ANSICHAR>> GetDebugDebugName(const UPrimitiveComponent* PrimitiveComp, const UBodySetup* BodySetup, FString& DebugName)
