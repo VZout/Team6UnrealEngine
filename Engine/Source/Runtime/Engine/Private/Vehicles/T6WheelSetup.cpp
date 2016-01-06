@@ -4,6 +4,7 @@
 #include "PhysicsPublic.h"
 #include "Vehicles/T6WheelSetup.h"
 #include "Vehicles/TireType.h"
+#include "Vehicles/T6Wheel.h"
 
 //TEMPLATE Load Obj From Path
 template <typename ObjClass>

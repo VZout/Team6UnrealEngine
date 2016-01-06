@@ -499,7 +499,7 @@ namespace UnrealBuildTool
 
 			// Incremental linking can yield faster iteration times when making small changes
 			// NOTE: We currently don't use incremental linking because it tends to behave a bit buggy on some computers (PDB-related compile errors)
-			bUseIncrementalLinking = false;
+			bUseIncrementalLinking = true;
 
 			bUseMallocProfiler = false;
 			bUsePDBFiles = false;
@@ -513,7 +513,7 @@ namespace UnrealBuildTool
 			// Using unity build to coalesce source files allows for much faster full rebuild times.  For fastest iteration times on single-file
 			// changes, consider turning this off.  In some cases, unity builds can cause linker errors after iterative changes to files, because
 			// the synthesized file names for unity code files may change between builds.
-			bUseUnityBuild = true;
+			bUseUnityBuild = false;
 
 			bForceUnityBuild = false;
 
@@ -538,7 +538,7 @@ namespace UnrealBuildTool
 
 			// When using the local executor (not XGE), run a single action on each CPU core.  Note that you can set this to a larger value
 			// to get slightly faster build times in many cases, but your computer's responsiveness during compiling may be much worse.
-			ProcessorCountMultiplier = 1.0;
+			ProcessorCountMultiplier = 1.75;
 
 			MaxProcessorCount = int.MaxValue;
 

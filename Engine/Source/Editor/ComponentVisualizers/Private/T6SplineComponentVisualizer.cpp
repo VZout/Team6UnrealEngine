@@ -34,7 +34,7 @@ FT6SplineComponentVisualizer::FT6SplineComponentVisualizer(){
 	bSnappingLinePresent = false;
 	SnappingNode = nullptr;
 
-	FSplineComponentVisualizerCommands::Register();
+	//FT6SplineComponentVisualizer::Register();
 
 	SplineComponentVisualizerActions = MakeShareable(new FUICommandList);
 }
@@ -44,7 +44,7 @@ FT6SplineComponentVisualizer::~FT6SplineComponentVisualizer(){
 }
 
 void FT6SplineComponentVisualizer::OnRegister(){
-	const auto& Commands = FSplineComponentVisualizerCommands::Get();
+	//const auto& Commands = FSplineComponentVisualizerCommands::Get();
 }
 
 void FT6SplineComponentVisualizer::DrawVisualization(const UActorComponent* Component, const FSceneView* View, FPrimitiveDrawInterface* PDI){

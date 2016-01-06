@@ -9,6 +9,7 @@
 #include "../PhysicsEngine/PhysXSupport.h"
 #include "../Vehicles/PhysXVehicleManager.h"
 #include "PhysicsEngine/BodyInstance.h"
+#include "Vehicles/T6VehicleComponentBase.h"
 
 UT6Wheel::UT6Wheel(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer) {
 	static ConstructorHelpers::FObjectFinder<UStaticMesh> CollisionMeshObj(TEXT("/Engine/EngineMeshes/Cylinder"));

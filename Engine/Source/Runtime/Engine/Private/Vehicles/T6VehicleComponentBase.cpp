@@ -6,14 +6,14 @@
 #include "Net/UnrealNetwork.h"
 #include "MessageLog.h"
 #include "Vehicles/T6Wheel.h"
-#include "Vehicles/T6Tire.h"
+
 #include "Vehicles/T6VehicleComponentBase.h"
 #include "Vehicles/TireType.h"
 
 #include "../PhysicsEngine/PhysXSupport.h"
 #include "../Collision/PhysXCollision.h"
 #include "PhysXVehicleManager.h"
-
+#include "Vehicles/T6Tire.h"
 #include "PhysicalMaterials/PhysicalMaterial.h"
 
 #define LOCTEXT_NAMESPACE "UT6VehicleComponentBase"

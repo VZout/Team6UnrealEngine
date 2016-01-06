@@ -12,6 +12,7 @@
 #include "PhysXVehicleManager.h"
 
 #include "AI/Navigation/AvoidanceManager.h"
+#include "PhysicalMaterials/PhysicalMaterial.h"
 
 #define LOCTEXT_NAMESPACE "UT6VehicleComponent"
 

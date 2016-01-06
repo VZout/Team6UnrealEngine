@@ -3175,6 +3175,9 @@ END_SLATE_FUNCTION_BUILD_OPTIMIZATION
 
 }
 
+#include "Widgets/Notifications/SNotificationList.h"
+#include "Framework/Notifications/NotificationManager.h"
+
 FReply SSimplygonGenerateUniqueUVs::OnApply()
 {
 	//todo: generate unique UVs per LOD

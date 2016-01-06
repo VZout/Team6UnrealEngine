@@ -2,8 +2,14 @@
 
 #include "EnginePrivate.h"
 #include "PhysicsPublic.h"
+
+#include "../PhysicsEngine/PhysXSupport.h"
+#include "../Collision/PhysXCollision.h"
+#include "PhysXVehicleManager.h"
+
 #include "Vehicles/T6Tire.h"
 #include "Vehicles/T6Wheel.h"
+#include "Vehicles/T6VehicleComponentBase.h"
 
 ////////////////////////////////////////////////////////////////////////////
 //Default tire force shader function.
