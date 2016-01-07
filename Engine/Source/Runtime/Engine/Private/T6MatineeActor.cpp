@@ -18,7 +18,11 @@ AT6MatineeActor::AT6MatineeActor(){
 void AT6MatineeActor::NotifyEventTriggered(FName EventName, float EventTime, bool bUseCustomEventName) {
 	Super::NotifyEventTriggered(EventName, EventTime, bUseCustomEventName);
 
-	Delegate.ExecuteIfBound();	// Dit nog beter maken
+	FT6MatineeEvent* Delegate = Delegates.Find(EventName);
+
+	if (Delegate && *Delegate){
+		(*Delegate)(EventTime);
+	}
 }
 
 
