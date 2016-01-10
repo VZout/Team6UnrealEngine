@@ -379,7 +379,7 @@ public:
 	 * virtual however, you should not inherit this function unless you're very aware of what you're
 	 * doing.  Normal derived versions should only ever override RebuildWidget.
 	 */
-	TSharedRef<SWidget> TakeWidget();
+	virtual TSharedRef<SWidget> TakeWidget();
 
 	/** Gets the last created widget does not recreate the gc container for the widget if one is needed. */
 	TSharedPtr<SWidget> GetCachedWidget() const;
