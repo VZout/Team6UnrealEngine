@@ -122,6 +122,8 @@ class ENGINE_API UT6VehicleComponentBase : public UPawnMovementComponent{
 	/** Compute the forces generates from a spinning tire */
 	//virtual void GenerateTireForces(class UT6Wheel* Wheel, const FT6TireShaderInput& Input, FT6TireShaderOutput& Output);
 
+	virtual float GetWheelRadius(int Index);
+
 	// Physics state
 	virtual bool ShouldCreatePhysicsState() const override;
 	virtual bool HasValidPhysicsState() const override;

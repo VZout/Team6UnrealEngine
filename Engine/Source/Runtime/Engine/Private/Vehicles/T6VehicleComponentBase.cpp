@@ -53,6 +53,32 @@ UT6VehicleComponentBase::UT6VehicleComponentBase(const FObjectInitializer& Objec
 	}
 }
 
+float UT6VehicleComponentBase::GetWheelRadius(int Index){
+	USkeletalMeshComponent * Mesh = Cast<USkeletalMeshComponent>(GetMesh());
+	check(Mesh);
+
+	UPhysicsAsset* PhysicsAsset = Mesh->GetPhysicsAsset();
+	check(PhysicsAsset);
+
+	const FT6WheelSetup& WheelSetup = WheelSetups[Index];
+
+	int32 BodySetupIdx = PhysicsAsset->FindBodyIndex(WheelSetup.BoneName);
+	check(BodySetupIdx >= 0);
+
+	UBodySetup* BodySetup = PhysicsAsset->BodySetup[BodySetupIdx];
+	check(BodySetup);
+
+	FBodyInstance* BodyInstance = Mesh->Bodies[BodySetupIdx];
+	BodyInstance->SetResponseToAllChannels(ECR_Ignore);	//turn off collision for wheel automatically
+
+	FBox Box = BodyInstance->GetBodyBounds();
+
+	float Volume = BodySetup->GetVolume(FVector(1, 1, 1));
+	float Radius = FMath::Pow(3 * Volume / (4 * 3.141592654), 1.0f / 3.0f);
+
+	return Radius;
+}
+
 void UT6VehicleComponentBase::FixupSkeletalMesh(){	// Functie nog renamen
 	//in skeletal mesh case we must set the offset on the PrimitiveComponent's BodyInstance, which will later update the actual root body
 	//this is needed for UI
@@ -82,14 +108,14 @@ void UT6VehicleComponentBase::FixupSkeletalMesh(){	// Functie nog renamen
 		FBodyInstance* BodyInstance = Mesh->Bodies[BodySetupIdx];
 		BodyInstance->SetResponseToAllChannels(ECR_Ignore);	//turn off collision for wheel automatically
 
-		FBox Box = BodyInstance->GetBodyBounds();
+		//FBox Box = BodyInstance->GetBodyBounds();
 
-		float Volume = BodySetup->GetVolume(FVector(1, 1, 1));
-		float Radius = 40;// FMath::Pow(3 * Volume / (4 * 3.141592654), 1.0f / 3.0f);
+		//float Volume = BodySetup->GetVolume(FVector(1, 1, 1));
+		//float Radius = 40;// FMath::Pow(3 * Volume / (4 * 3.141592654), 1.0f / 3.0f);
 
-		UE_LOG(LogVehicles, Warning, TEXT("Volume van wheel %d is %.2f, Radius is %.2f, (%.2f)"), i, Volume, Radius, Box.GetExtent().Z);
+		//UE_LOG(LogVehicles, Log, TEXT("Volume van wheel %d is %.2f, Radius is %.2f, (%.2f)"), i, Volume, Radius, Box.GetExtent().Z);
 
-		WheelSetup.Radius = Radius;
+		WheelSetup.Radius = GetWheelRadius(i);
 
 		if (BodySetup->PhysicsType == PhysType_Default) { 	//if they set it to unfixed we don't fixup because they are explicitely saying Unfixed
 			BodyInstance->SetInstanceSimulatePhysics(false);
@@ -210,6 +236,8 @@ bool UT6VehicleComponentBase::CreateVehicle(){
 	ExecuteOnPxRigidDynamicReadWrite(UpdatedPrimitive->GetBodyInstance(), [&](PxRigidDynamic* PRigidDynamic){
 		PVehicle->setup(GPhysXSDK, PRigidDynamic, *PWheelsSimData);
 		PVehicle->setToRestState();
+
+		//PVehicle->getRigidDynamicActor()->setDominanceGroup(2);
 
 		// cleanup
 		PWheelsSimData->free();
@@ -435,7 +463,7 @@ FVector UT6VehicleComponentBase::GetWheelRestingPosition(const FT6WheelSetup& Wh
 	const FVector LocalBonePosition = RootBodyMTX.InverseTransformPosition(BonePosition);
 	Offset += LocalBonePosition;
 
-	UE_LOG(LogVehicles, Warning, TEXT("Wheel %s resting point = %s"), *WheelSetup.BoneName.ToString(), *Offset.ToString());
+	UE_LOG(LogVehicles, Log, TEXT("Wheel %s resting point = %s"), *WheelSetup.BoneName.ToString(), *Offset.ToString());
 
 	if (WheelSetups.Num() == 2){
 		Offset.Y = 0;	// Lelijke hack om sloppyness van artists te fixen
@@ -458,7 +486,7 @@ FVector UT6VehicleComponentBase::GetLocalCOM() const{
 		});
 	}
 
-	UE_LOG(LogVehicles, Warning, TEXT("COM = %s"), *LocalCOM.ToString());
+	UE_LOG(LogVehicles, Log, TEXT("COM = %s"), *LocalCOM.ToString());
 
 	LocalCOM += COMOffset;
 	LocalCOM.Y = 0;	// Lelijke hack om sloppyness van artists te fixen

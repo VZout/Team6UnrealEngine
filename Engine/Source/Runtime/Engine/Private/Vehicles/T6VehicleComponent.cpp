@@ -33,6 +33,8 @@ UT6VehicleComponent::UT6VehicleComponent(const FObjectInitializer& ObjectInitial
 	AvoidanceConsiderationRadius = 2000.0f;
 	RVOSteeringStep = 0.5f;
 	RVOThrottleStep = 0.25f;
+
+	Gear = 1;
 }
 
 bool UT6VehicleComponent::CreateVehicle(){
@@ -73,7 +75,7 @@ float UT6VehicleComponent::GetAccel(){
 }
 
 const float StandstillTreshold = 5.0f;
-const float StandstillTime = 0.5f;
+const float StandstillTime = 0.1f;
 
 void UT6VehicleComponent::UpdateSimulation(float DeltaTime){
 	UpdatedPrimitive->GetBodyInstance()->ExecuteOnPhysicsReadWrite([&]{
@@ -228,6 +230,10 @@ void UT6VehicleComponent::GetLifetimeReplicatedProps(TArray< FLifetimeProperty >
 	DOREPLIFETIME(UT6VehicleComponent, ReplicatedInputState);
 }
 
+static bool XYEqual(const FVector& v1, const FVector& v2, float Tolerance = KINDA_SMALL_NUMBER){
+	return FMath::Abs(v1.X - v2.X) <= Tolerance && FMath::Abs(v1.Y - v2.Y) <= Tolerance;;
+}
+
 void UT6VehicleComponent::CalculateAvoidanceVelocity(float DeltaTime){
 	if (!bUseRVOAvoidance){
 		return;
@@ -258,6 +264,9 @@ void UT6VehicleComponent::CalculateAvoidanceVelocity(float DeltaTime){
 		//See if we're doing a locked avoidance move already, and if so, skip the testing and just do the move.
 		if (AvoidanceLockTimer > 0.0f){
 			AvoidanceVelocity = AvoidanceLockVelocity;
+
+			PostProcessAvoidance.ExecuteIfBound(this, AvoidanceVelocity);
+
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 			if (bShowDebug){
 				DrawDebugLine(GetWorld(), GetRVOAvoidanceOrigin(), GetRVOAvoidanceOrigin() + AvoidanceVelocity, FColor::Blue, true, 0.5f, SDPG_MAX);
@@ -267,12 +276,13 @@ void UT6VehicleComponent::CalculateAvoidanceVelocity(float DeltaTime){
 		else{
 			FVector NewVelocity = AvoidanceManager->GetAvoidanceVelocityForComponent(this);
 
-			PostProcessAvoidance.ExecuteIfBound(this, NewVelocity);
-
-			if (!NewVelocity.Equals(AvoidanceVelocity)){		//Really want to branch hint that this will probably not pass
+			if (!XYEqual(NewVelocity, AvoidanceVelocity)){//NewVelocity.Equals(AvoidanceVelocity)){		//Really want to branch hint that this will probably not pass
 				//Had to divert course, lock this avoidance move in for a short time. This will make us a VO, so unlocked others will know to avoid us.
 				AvoidanceVelocity = NewVelocity;
 				SetAvoidanceVelocityLock(AvoidanceManager, AvoidanceManager->LockTimeAfterAvoid);
+
+				PostProcessAvoidance.ExecuteIfBound(this, AvoidanceVelocity);
+
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 				if (bShowDebug) {
 					DrawDebugLine(GetWorld(), GetRVOAvoidanceOrigin(), GetRVOAvoidanceOrigin() + AvoidanceVelocity, FColor::Red, true, 20.0f, SDPG_MAX, 10.0f);
