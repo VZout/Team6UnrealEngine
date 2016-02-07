@@ -42,19 +42,19 @@ class ENGINE_API USplineComponent : public UPrimitiveComponent
 	GENERATED_UCLASS_BODY()
 
 	/** Spline built from position data. */
-	UPROPERTY()//EditAnywhere, Category = Points)
+	UPROPERTY(EditAnywhere, Category = Points)
 	FInterpCurveVector SplineInfo;
 
 	/** Spline built from rotation data. */
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, Category = Points)
 	FInterpCurveQuat SplineRotInfo;
 
 	/** Spline built from scale data. */
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, Category = Points)
 	FInterpCurveVector SplineScaleInfo;
 
 	/** Input, distance along curve, output, parameter that puts you there. */
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, Category = Points)
 	FInterpCurveFloat SplineReparamTable;
 
 	UPROPERTY()

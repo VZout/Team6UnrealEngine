@@ -75,8 +75,13 @@ int32 SSlider::OnPaint( const FPaintArgs& Args, const FGeometry& AllottedGeometr
 	const ESlateDrawEffect::Type DrawEffects = bEnabled ? ESlateDrawEffect::None : ESlateDrawEffect::DisabledEffect;
 
 	// draw slider bar
-	auto BarTopLeft = FVector2D(SliderStartPoint.X, SliderStartPoint.Y - 1);
-	auto BarSize = FVector2D(SliderEndPoint.X - SliderStartPoint.X, 2);
+	// draw slider bar
+	auto BarTopLeft = FVector2D(SliderStartPoint.X, SliderStartPoint.Y - (Style->NormalBarImage.ImageSize.Y / 2));
+	auto BarSize = FVector2D(SliderEndPoint.X - SliderStartPoint.X, Style->NormalBarImage.ImageSize.Y);
+	
+	//auto BarTopLeft = FVector2D(SliderStartPoint.X, SliderStartPoint.Y - 1);
+	//auto BarSize = FVector2D(SliderEndPoint.X - SliderStartPoint.X, 2);
+
 	FSlateDrawElement::MakeBox(
 		OutDrawElements,
 		LayerId,
