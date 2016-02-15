@@ -66,12 +66,13 @@ float UT6VehicleComponent::GetSteering(){
 float UT6VehicleComponent::GetAccel(){
 	const float Speed = FMath::Abs(GetForwardSpeed()) * 3600.f / 100000.f;
 
-	float TorqueMult = TorqueCurve.GetRichCurve()->Eval(Speed);
-	if (Gear == -1) {
-		TorqueMult *= 0.5f;
+	
+	if (Gear > 0){
+		return TorqueCurve.GetRichCurve()->Eval(Speed);
 	}
-
-	return TorqueMult;
+	else{
+		return TorqueCurve.GetRichCurve()->Eval(Speed * 15);
+	}
 }
 
 const float StandstillTreshold = 5.0f;

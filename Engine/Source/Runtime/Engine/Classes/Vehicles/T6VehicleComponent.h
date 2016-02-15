@@ -61,8 +61,8 @@ class ENGINE_API UT6VehicleComponent : public UT6VehicleComponentBase, public IR
 	float Gear;
 	float SlowTimer;
 
-	float GetSteering();
-	float GetAccel();
+	virtual float GetSteering();
+	virtual float GetAccel();
 
 	/** Set the user input for the vehicle throttle */
 	UFUNCTION(BlueprintCallable, Category = "Game|Components|WheeledVehicleMovement")
