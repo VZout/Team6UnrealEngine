@@ -73,10 +73,10 @@ float UT6VehicleComponentBase::GetWheelRadius(int Index){
 
 	FBox Box = BodyInstance->GetBodyBounds();
 
-	float Volume = BodySetup->GetVolume(FVector(1, 1, 1));
-	float Radius = FMath::Pow(3 * Volume / (4 * 3.141592654), 1.0f / 3.0f);
+	//float Volume = BodySetup->GetVolume(FVector(1, 1, 1));
+	//float Radius = FMath::Pow(3 * Volume / (4 * 3.141592654), 1.0f / 3.0f);
 
-	return Radius;
+	return Box.GetExtent().Z;
 }
 
 void UT6VehicleComponentBase::FixupSkeletalMesh(){	// Functie nog renamen
@@ -463,7 +463,7 @@ FVector UT6VehicleComponentBase::GetWheelRestingPosition(const FT6WheelSetup& Wh
 	const FVector LocalBonePosition = RootBodyMTX.InverseTransformPosition(BonePosition);
 	Offset += LocalBonePosition;
 
-	UE_LOG(LogVehicles, Log, TEXT("Wheel %s resting point = %s"), *WheelSetup.BoneName.ToString(), *Offset.ToString());
+	//UE_LOG(LogVehicles, Log, TEXT("Wheel %s resting point = %s"), *WheelSetup.BoneName.ToString(), *Offset.ToString());
 
 	if (WheelSetups.Num() == 2){
 		Offset.Y = 0;	// Lelijke hack om sloppyness van artists te fixen
