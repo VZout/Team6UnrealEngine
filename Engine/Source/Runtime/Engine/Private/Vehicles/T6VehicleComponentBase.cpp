@@ -73,9 +73,6 @@ float UT6VehicleComponentBase::GetWheelRadius(int Index){
 
 	FBox Box = BodyInstance->GetBodyBounds();
 
-	//float Volume = BodySetup->GetVolume(FVector(1, 1, 1));
-	//float Radius = FMath::Pow(3 * Volume / (4 * 3.141592654), 1.0f / 3.0f);
-
 	return Box.GetExtent().Z;
 }
 
