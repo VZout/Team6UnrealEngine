@@ -1,6 +1,7 @@
 #include "EnginePrivate.h"
 #include "Engine.h"
 #include "PhysicsPublic.h"
+#include "PhysXPublic.h"
 #include "Vehicles/T6WheeledVehicleMovementComponent.h"
 
 UT6WheeledVehicleMovementComponent::UT6WheeledVehicleMovementComponent(const FObjectInitializer& Initializer) : Super(Initializer){
