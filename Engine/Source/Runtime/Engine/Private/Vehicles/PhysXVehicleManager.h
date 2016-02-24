@@ -13,7 +13,7 @@ DECLARE_LOG_CATEGORY_EXTERN(LogVehicles, Log, All);
 /**
  * Manages vehicles and tire surface data for all scenes
  */
-class FPhysXVehicleManager
+class ENGINE_API FPhysXVehicleManager
 {
 public:
 
@@ -33,19 +33,19 @@ public:
 	 * Register a PhysX vehicle for processing
 	 */
 	void AddVehicle( TWeakObjectPtr<class UWheeledVehicleMovementComponent> Vehicle );
-	void AddVehicle(TWeakObjectPtr<class UT6VehicleComponentBase> Vehicle);
+	void AddVehicle(TWeakObjectPtr<class UT6WheeledVehicleMovementComponent> Vehicle);
 
 	/**
 	 * Unregister a PhysX vehicle from processing
 	 */
 	void RemoveVehicle( TWeakObjectPtr<class UWheeledVehicleMovementComponent> Vehicle );
-	void RemoveVehicle(TWeakObjectPtr<class UT6VehicleComponentBase> Vehicle);
+	void RemoveVehicle(TWeakObjectPtr<class UT6WheeledVehicleMovementComponent> Vehicle);
 
 	/**
 	 * Set the vehicle that we want to record telemetry data for
 	 */
 	void SetRecordTelemetry( TWeakObjectPtr<class UWheeledVehicleMovementComponent> Vehicle, bool bRecord );
-	void SetRecordTelemetry(TWeakObjectPtr<class UT6VehicleComponentBase> Vehicle, bool bRecord);
+	void SetRecordTelemetry(TWeakObjectPtr<class UT6WheeledVehicleMovementComponent> Vehicle, bool bRecord);
 
 	/**
 	 * Get the updated telemetry data
@@ -71,7 +71,7 @@ public:
 	}
 
 	DEPRECATED(4.8, "Please call GetWheelsStates_AssumesLocked and make sure you obtain the appropriate PhysX scene locks")
-		PxWheelQueryResult* GetWheelsStates(TWeakObjectPtr<class UT6VehicleComponentBase> Vehicle) {
+		PxWheelQueryResult* GetWheelsStates(TWeakObjectPtr<class UT6WheeledVehicleMovementComponent> Vehicle) {
 		return GetWheelsStates_AssumesLocked(Vehicle);
 	}
 
@@ -79,8 +79,8 @@ public:
 	 * Get a vehicle's wheels states, such as isInAir, suspJounce, contactPoints, etc
 	 */
 	PxWheelQueryResult* GetWheelsStates_AssumesLocked(TWeakObjectPtr<class UWheeledVehicleMovementComponent> Vehicle);
-	PxWheelQueryResult* GetWheelsStates_AssumesLocked(TWeakObjectPtr<class UT6VehicleComponentBase> Vehicle);
-	PxVehicleWheelQueryResult* GetVehicleState_AssumesLocked(TWeakObjectPtr<class UT6VehicleComponentBase> Vehicle);
+	PxWheelQueryResult* GetWheelsStates_AssumesLocked(TWeakObjectPtr<class UT6WheeledVehicleMovementComponent> Vehicle);
+	PxVehicleWheelQueryResult* GetVehicleState_AssumesLocked(TWeakObjectPtr<class UT6WheeledVehicleMovementComponent> Vehicle);
 
 	/**
 	 * Update vehicle data before the scene simulates
@@ -106,7 +106,7 @@ private:
 
 	// All instanced vehicles
 	TArray<TWeakObjectPtr<class UWheeledVehicleMovementComponent>>			Vehicles;
-	TArray<TWeakObjectPtr<class UT6VehicleComponentBase>>						T6Vehicles;
+	TArray<TWeakObjectPtr<class UT6WheeledVehicleMovementComponent>>						T6Vehicles;
 
 	// All instanced PhysX vehicles
 	TArray<PxVehicleWheels*>									PVehicles;

@@ -4,7 +4,7 @@
 #include "PhysicsPublic.h"
 #include "Vehicles/TireType.h"
 #include "Vehicles/WheeledVehicleMovementComponent.h"
-#include "Vehicles/T6VehicleComponentBase.h"
+#include "Vehicles/T6WheeledVehicleMovementComponent.h"
 
 #if WITH_VEHICLE
 
@@ -440,7 +440,7 @@ PxWheelQueryResult* FPhysXVehicleManager::GetWheelsStates_AssumesLocked(TWeakObj
 }
 #endif // WITH_PHYSX
 
-void FPhysXVehicleManager::AddVehicle(TWeakObjectPtr<class UT6VehicleComponentBase> Vehicle){
+void FPhysXVehicleManager::AddVehicle(TWeakObjectPtr<class UT6WheeledVehicleMovementComponent> Vehicle){
 	check(Vehicle != NULL);
 	check(Vehicle->PVehicle);
 
@@ -456,7 +456,7 @@ void FPhysXVehicleManager::AddVehicle(TWeakObjectPtr<class UT6VehicleComponentBa
 	SetUpBatchedSceneQuery();
 }
 
-void FPhysXVehicleManager::RemoveVehicle(TWeakObjectPtr<class UT6VehicleComponentBase> Vehicle){
+void FPhysXVehicleManager::RemoveVehicle(TWeakObjectPtr<class UT6WheeledVehicleMovementComponent> Vehicle){
 	check(Vehicle != NULL);
 	check(Vehicle->PVehicle);
 
@@ -494,7 +494,7 @@ void FPhysXVehicleManager::RemoveVehicle(TWeakObjectPtr<class UT6VehicleComponen
 	}
 }
 
-void FPhysXVehicleManager::SetRecordTelemetry(TWeakObjectPtr<class UT6VehicleComponentBase> Vehicle, bool bRecord){
+void FPhysXVehicleManager::SetRecordTelemetry(TWeakObjectPtr<class UT6WheeledVehicleMovementComponent> Vehicle, bool bRecord){
 #if PX_DEBUG_VEHICLE_ON
 	if (Vehicle != NULL && Vehicle->PVehicle != NULL) {
 		PxVehicleWheels* PVehicle = Vehicle->PVehicle;
@@ -525,7 +525,7 @@ void FPhysXVehicleManager::SetRecordTelemetry(TWeakObjectPtr<class UT6VehicleCom
 #endif
 }
 
-PxWheelQueryResult* FPhysXVehicleManager::GetWheelsStates_AssumesLocked(TWeakObjectPtr<class UT6VehicleComponentBase> Vehicle) {
+PxWheelQueryResult* FPhysXVehicleManager::GetWheelsStates_AssumesLocked(TWeakObjectPtr<class UT6WheeledVehicleMovementComponent> Vehicle) {
 	int32 Index = T6Vehicles.Find(Vehicle);
 
 	if (Index != INDEX_NONE) {
@@ -536,7 +536,7 @@ PxWheelQueryResult* FPhysXVehicleManager::GetWheelsStates_AssumesLocked(TWeakObj
 	}
 }
 
-PxVehicleWheelQueryResult* FPhysXVehicleManager::GetVehicleState_AssumesLocked(TWeakObjectPtr<class UT6VehicleComponentBase> Vehicle) {
+PxVehicleWheelQueryResult* FPhysXVehicleManager::GetVehicleState_AssumesLocked(TWeakObjectPtr<class UT6WheeledVehicleMovementComponent> Vehicle) {
 	int32 Index = T6Vehicles.Find(Vehicle);
 
 	if (Index != INDEX_NONE) {
