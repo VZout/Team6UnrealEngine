@@ -540,6 +540,9 @@ namespace UnrealBuildTool
 
 				foreach (var CurFile in SourceFiles)
 				{
+					if (CurFile.FilePath.Contains(".svn")){
+						continue;
+					}
 					// We want all source file and directory paths in the project files to be relative to the project file's
 					// location on the disk.  Convert the path to be relative to the project file directory
 					var ProjectRelativeSourceFile = Utils.MakePathRelativeTo(CurFile.FilePath, Path.GetDirectoryName(ProjectFilePath));
