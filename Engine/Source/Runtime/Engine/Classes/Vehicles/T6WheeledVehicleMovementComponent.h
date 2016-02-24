@@ -45,4 +45,7 @@ public:
 #endif // WITH_VEHICLE
 
 	class FPhysXVehicleManager* GetVehicleManager() const;
+
+	UFUNCTION(BlueprintCallable, Category = "Game|Components|WheeledVehicleMovement")
+	virtual float GetForwardSpeed() const;
 };

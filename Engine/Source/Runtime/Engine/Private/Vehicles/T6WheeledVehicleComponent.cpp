@@ -9,3 +9,15 @@ UT6WheeledVehicleMovementComponent::UT6WheeledVehicleMovementComponent(const FOb
 FPhysXVehicleManager* UT6WheeledVehicleMovementComponent::GetVehicleManager() const{
 	return World->GetPhysicsScene()->GetVehicleManager();
 }
+
+float UT6WheeledVehicleMovementComponent::GetForwardSpeed() const{
+	float ForwardSpeed = 0.f;
+
+	if (PVehicle){
+		UpdatedPrimitive->GetBodyInstance()->ExecuteOnPhysicsReadOnly([&]{
+			ForwardSpeed = PVehicle->computeForwardSpeed();
+		});
+	}
+
+	return ForwardSpeed;
+}
