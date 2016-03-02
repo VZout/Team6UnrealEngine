@@ -39,7 +39,7 @@ void FComponentVisualizersModule::StartupModule()
 	RegisterComponentVisualizer(UPhysicsConstraintComponent::StaticClass()->GetFName(), MakeShareable(new FConstraintComponentVisualizer));
 	RegisterComponentVisualizer(USpringArmComponent::StaticClass()->GetFName(), MakeShareable(new FSpringArmComponentVisualizer));
 	RegisterComponentVisualizer(USplineComponent::StaticClass()->GetFName(), MakeShareable(new FSplineComponentVisualizer));
-	RegisterComponentVisualizer(UT6SplineComponent::StaticClass()->GetFName(), MakeShareable(new FT6SplineComponentVisualizer));
+	RegisterComponentVisualizer(UT6SplineNodeComponent::StaticClass()->GetFName(), MakeShareable(new FT6SplineComponentVisualizer));
 	RegisterComponentVisualizer(USplineMeshComponent::StaticClass()->GetFName(), MakeShareable(new FSplineMeshComponentVisualizer));
 	RegisterComponentVisualizer(UPawnSensingComponent::StaticClass()->GetFName(), MakeShareable(new FSensingComponentVisualizer));
 	RegisterComponentVisualizer(UPhysicsSpringComponent::StaticClass()->GetFName(), MakeShareable(new FSpringComponentVisualizer));

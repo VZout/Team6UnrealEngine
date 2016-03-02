@@ -2,18 +2,18 @@
 
 #pragma once
 #include "GameFramework/Actor.h"
-#include "Classes/Components/T6SplineComponent.h"
+#include "Classes/Components/T6SplineNodeComponent.h"
 #include "T6SplineActor.generated.h"
 
-class AT6SplineActor;
+class AT6SplineNodeActor;
 
 struct ENGINE_API T6Spline{
 	FVector p0, m0, p1, m1;
 
 	T6Spline();
-	T6Spline(const AT6SplineActor** CPs);
+	T6Spline(const AT6SplineNodeActor** CPs);
 
-	void SetCPs(const AT6SplineActor** CPs);
+	void SetCPs(const AT6SplineNodeActor** CPs);
 
 	FVector GetValue(float t);
 	FVector GetFirstDerivative(float t);
@@ -21,22 +21,17 @@ struct ENGINE_API T6Spline{
 };
 
 UCLASS()
-class ENGINE_API AT6SplineActor : public AActor{
+class ENGINE_API AT6SplineNodeActor : public AActor{
 	GENERATED_BODY()
 
 public:
 	UPROPERTY()
-		UT6SplineComponent* Spline;
+	UT6SplineNodeComponent* Spline;
 
 	UPROPERTY(Category = Connections, EditAnywhere, BlueprintReadWrite)
-		TArray<AT6SplineActor*> Connections;
+	TArray<AT6SplineNodeActor*> Connections;
 
-	AT6SplineActor(const FObjectInitializer& ObjectInitializer);
-
-
-	/*AT6NavNode* GetRandomConnection();
-
-	FRRSimpleSpline GenerateSpline();*/
+	AT6SplineNodeActor(const FObjectInitializer& ObjectInitializer);
 
 	bool IsLeafNode() const{
 		for (int i = 0; i < Connections.Num(); i++){

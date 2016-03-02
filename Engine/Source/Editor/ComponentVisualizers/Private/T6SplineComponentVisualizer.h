@@ -3,7 +3,7 @@
 #pragma once
 
 #include "ComponentVisualizer.h"
-#include "Components/T6SplineComponent.h"
+#include "Components/T6SplineNodeComponent.h"
 #include "GameFramework/T6SplineActor.h"
 
 struct T6SplineNodeProxy : public HComponentVisProxy{
@@ -17,26 +17,26 @@ struct T6SplineNodeProxy : public HComponentVisProxy{
 struct T6SplineLineProxy : public HComponentVisProxy{
 	DECLARE_HIT_PROXY();
 
-	AT6SplineActor* CPs[4];
+	AT6SplineNodeActor* CPs[4];
 
-	T6SplineLineProxy(const AT6SplineActor** CPs) : HComponentVisProxy(CPs[1]->GetRootComponent(), HPP_Wireframe){
+	T6SplineLineProxy(const AT6SplineNodeActor** CPs) : HComponentVisProxy(CPs[1]->GetRootComponent(), HPP_Wireframe){
 		for (int i = 0; i < 4; i++){
-			this->CPs[i] = (AT6SplineActor*)CPs[i];
+			this->CPs[i] = (AT6SplineNodeActor*)CPs[i];
 		}
 	}
 };
 
 struct T6SplineLine{
-	AT6SplineActor* Node;
-	AT6SplineActor* Target;
+	AT6SplineNodeActor* Node;
+	AT6SplineNodeActor* Target;
 
 	T6SplineLine(){
 		//
 	}
 
-	T6SplineLine(const AT6SplineActor* Node, const AT6SplineActor* Target){
-		this->Node = (AT6SplineActor*)Node;
-		this->Target = (AT6SplineActor*)Target;
+	T6SplineLine(const AT6SplineNodeActor* Node, const AT6SplineNodeActor* Target){
+		this->Node = (AT6SplineNodeActor*)Node;
+		this->Target = (AT6SplineNodeActor*)Target;
 	}
 
 	bool operator==(const T6SplineLine& Other) const{
@@ -49,13 +49,13 @@ class FT6SplineComponentVisualizer : public FComponentVisualizer{
 	bool bAllowDuplication;
 
 	UPROPERTY(transient)
-	TArray<AT6SplineActor*> SelectedNodes;
+	TArray<AT6SplineNodeActor*> SelectedNodes;
 
 	UPROPERTY(transient)
 	TArray<T6SplineLine> SelectedLines;
 
 	UPROPERTY(transient)
-	AT6SplineActor* LastSelectedNode;
+	AT6SplineNodeActor* LastSelectedNode;
 
 	UPROPERTY(transient)
 	TSharedPtr<FUICommandList> SplineComponentVisualizerActions;
@@ -67,7 +67,7 @@ class FT6SplineComponentVisualizer : public FComponentVisualizer{
 	bool bSnappingLinePresent;
 
 	UPROPERTY(transient)
-	AT6SplineActor* SnappingNode;
+	AT6SplineNodeActor* SnappingNode;
 
 	UPROPERTY(transient)
 	FVector SelectedSplinePosition;
@@ -93,12 +93,12 @@ public:
 	void OnDeleteNodes();
 
 	void OnDuplicateKey();
-	void OnInsertKey(AT6SplineActor* Node1, AT6SplineActor* Node2, const FVector& Pos);
+	void OnInsertKey(AT6SplineNodeActor* Node1, AT6SplineNodeActor* Node2, const FVector& Pos);
 
-	void ChangeNodeSelection(AT6SplineActor* Actor, bool bIsCtrlHeld);
+	void ChangeNodeSelection(AT6SplineNodeActor* Actor, bool bIsCtrlHeld);
 	void ChangeLineSelection(const T6SplineLine& Line, bool bIsCtrlHeld);
 
-	void DrawVisualizationInternal(const AT6SplineActor* Actor, const FSceneView* View, FPrimitiveDrawInterface* PDI, TArray<const AT6SplineActor*>& ControlPoints);
+	void DrawVisualizationInternal(const AT6SplineNodeActor* Actor, const FSceneView* View, FPrimitiveDrawInterface* PDI, TArray<const AT6SplineNodeActor*>& ControlPoints);
 
 	void NotifyComponentModified();
 };

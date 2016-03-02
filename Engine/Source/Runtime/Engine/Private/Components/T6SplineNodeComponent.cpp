@@ -5,21 +5,24 @@
 =============================================================================*/
 
 #include "EnginePrivate.h"
-#include "Components/T6SplineComponent.h"
+#include "Components/T6SplineNodeComponent.h"
 #include "ComponentInstanceDataCache.h"
-
 
 UT6SplineComponent::UT6SplineComponent(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer){
 	//
 }
 
-void UT6SplineComponent::PostLoad(){
+UT6SplineNodeComponent::UT6SplineNodeComponent(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer){
+	//
+}
+
+void UT6SplineNodeComponent::PostLoad(){
 	Super::PostLoad();
 	//UpdateT6Spline();
 }
 
 
-void UT6SplineComponent::PostEditImport(){
+void UT6SplineNodeComponent::PostEditImport(){
 	Super::PostEditImport();
 	//UpdateT6Spline();
 }
@@ -27,7 +30,7 @@ void UT6SplineComponent::PostEditImport(){
 //
 class FT6SplineInstanceData : public FSceneComponentInstanceData{
 public:
-	explicit FT6SplineInstanceData(const UT6SplineComponent* SourceComponent) : FSceneComponentInstanceData(SourceComponent){
+	explicit FT6SplineInstanceData(const UT6SplineNodeComponent* SourceComponent) : FSceneComponentInstanceData(SourceComponent){
 		//
 	}
 
@@ -38,27 +41,27 @@ public:
 	FInterpCurveVector T6SplineInfo;
 };
 
-/*FName UT6SplineComponent::GetComponentInstanceDataType() const{
+/*FName UT6SplineNodeComponent::GetComponentInstanceDataType() const{
 	static const FName T6SplineInstanceDataTypeName(TEXT("T6SplineInstanceData"));
 	return T6SplineInstanceDataTypeName;
 }*/
 
-FActorComponentInstanceData* UT6SplineComponent::GetComponentInstanceData() const{
+FActorComponentInstanceData* UT6SplineNodeComponent::GetComponentInstanceData() const{
 	FT6SplineInstanceData* T6SplineInstanceData = new FT6SplineInstanceData(this);
 
 	return T6SplineInstanceData;
 }
 
 #if WITH_EDITOR
-void UT6SplineComponent::PreEditChange(UProperty* PropertyAboutToChange){
+void UT6SplineNodeComponent::PreEditChange(UProperty* PropertyAboutToChange){
 	Super::PreEditChange(PropertyAboutToChange);
 }
 
-void UT6SplineComponent::PostEditChangeChainProperty(FPropertyChangedChainEvent& PropertyChangedChainEvent){
+void UT6SplineNodeComponent::PostEditChangeChainProperty(FPropertyChangedChainEvent& PropertyChangedChainEvent){
 	Super::PostEditChangeChainProperty(PropertyChangedChainEvent);
 }
 
-void UT6SplineComponent::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent){
+void UT6SplineNodeComponent::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent){
 	Super::PostEditChangeProperty(PropertyChangedEvent);
 }
 #endif

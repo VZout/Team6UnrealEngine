@@ -3,7 +3,7 @@
 
 #pragma once
 #include "PrimitiveComponent.h"
-#include "T6SplineComponent.generated.h"
+#include "T6SplineNodeComponent.generated.h"
 
 /** 
  *	A T6Spline component is a T6Spline shape which can be used for other purposes (e.g. animating objects). It does not contain rendering capabilities itself (outside the editor) 
@@ -12,8 +12,12 @@
 UCLASS(ClassGroup=Utility, meta=(BlueprintSpawnableComponent))
 class ENGINE_API UT6SplineComponent : public UPrimitiveComponent{
 	GENERATED_UCLASS_BODY()
+};
 
-public:
+UCLASS()
+class ENGINE_API UT6SplineNodeComponent : public UT6SplineComponent{
+	GENERATED_UCLASS_BODY()
+
 	// Begin UActorComponent interface.
 	virtual FActorComponentInstanceData* GetComponentInstanceData() const override;
 	//virtual FName GetComponentInstanceDataType() const override;
@@ -29,6 +33,4 @@ public:
 	// End of UObject interface
 #endif
 };
-
-
 

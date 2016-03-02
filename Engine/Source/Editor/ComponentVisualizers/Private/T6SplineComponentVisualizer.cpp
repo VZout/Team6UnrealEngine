@@ -48,16 +48,16 @@ void FT6SplineComponentVisualizer::OnRegister(){
 }
 
 void FT6SplineComponentVisualizer::DrawVisualization(const UActorComponent* Component, const FSceneView* View, FPrimitiveDrawInterface* PDI){
-	const UT6SplineComponent* SplineComponent = Cast<const UT6SplineComponent>(Component);
+	const UT6SplineNodeComponent* SplineComponent = Cast<const UT6SplineNodeComponent>(Component);
 
 	if (SplineComponent == nullptr){
 		return;
 	}
 
-	AT6SplineActor* Actor = (AT6SplineActor*)Component->GetOwner();
+	AT6SplineNodeActor* Actor = (AT6SplineNodeActor*)Component->GetOwner();
 
-	for (TActorIterator<AT6SplineActor> Iterator(Actor->GetWorld()); Iterator; ++Iterator){
-		AT6SplineActor* Node = *Iterator;
+	for (TActorIterator<AT6SplineNodeActor> Iterator(Actor->GetWorld()); Iterator; ++Iterator){
+		AT6SplineNodeActor* Node = *Iterator;
 
 		// Render the node itself
 		FLinearColor Color;
@@ -74,7 +74,7 @@ void FT6SplineComponentVisualizer::DrawVisualization(const UActorComponent* Comp
 		PDI->DrawPoint(Node->GetTransform().GetTranslation(), Color, PointSize, SDPG_Foreground);
 		PDI->SetHitProxy(nullptr);
 
-		TArray<const AT6SplineActor*> Spline;
+		TArray<const AT6SplineNodeActor*> Spline;
 		Spline.Add(Node);
 
 		DrawVisualizationInternal(Node, View, PDI, Spline);
@@ -89,10 +89,10 @@ void FT6SplineComponentVisualizer::DrawVisualization(const UActorComponent* Comp
 	}
 }
 
-void FT6SplineComponentVisualizer::DrawVisualizationInternal(const AT6SplineActor* Node, const FSceneView* View, FPrimitiveDrawInterface* PDI, TArray<const AT6SplineActor*>& ControlPoints){
+void FT6SplineComponentVisualizer::DrawVisualizationInternal(const AT6SplineNodeActor* Node, const FSceneView* View, FPrimitiveDrawInterface* PDI, TArray<const AT6SplineNodeActor*>& ControlPoints){
 	if (ControlPoints.Num() == 4){
 		// Gather the applicable control points
-		const AT6SplineActor** CPs = ControlPoints.GetData() + (ControlPoints.Num() - 4);
+		const AT6SplineNodeActor** CPs = ControlPoints.GetData() + (ControlPoints.Num() - 4);
 
 		// Create the spline to be rendered
 		T6Spline Spline(CPs);
@@ -137,7 +137,7 @@ void FT6SplineComponentVisualizer::DrawVisualizationInternal(const AT6SplineActo
 	}
 	else{
 		for (int i = 0; i < Node->Connections.Num(); i++){
-			AT6SplineActor* Child = Cast<AT6SplineActor>(Node->Connections[i]);
+			AT6SplineNodeActor* Child = Cast<AT6SplineNodeActor>(Node->Connections[i]);
 
 			if (Child != nullptr){
 				ControlPoints.Push(Child);
@@ -170,8 +170,8 @@ bool FT6SplineComponentVisualizer::HandleInputDelta(FEditorViewportClient* Viewp
 
 		SnappingNode = nullptr;
 
-		for (TActorIterator<AT6SplineActor> Iterator(LastSelectedNode->GetWorld()); Iterator; ++Iterator){
-			AT6SplineActor* Node = *Iterator;
+		for (TActorIterator<AT6SplineNodeActor> Iterator(LastSelectedNode->GetWorld()); Iterator; ++Iterator){
+			AT6SplineNodeActor* Node = *Iterator;
 
 			if (SelectedNodes.Contains(Node)){
 				continue;
@@ -190,7 +190,7 @@ bool FT6SplineComponentVisualizer::HandleInputDelta(FEditorViewportClient* Viewp
 	}
 
 	for (int i = 0; i < SelectedNodes.Num(); i++){
-		AT6SplineActor* Actor = (AT6SplineActor*)SelectedNodes[i];
+		AT6SplineNodeActor* Actor = (AT6SplineNodeActor*)SelectedNodes[i];
 
 		if (!DeltaTranslate.IsZero()){
 			FTransform Transform = Actor->GetTransform();
@@ -297,9 +297,9 @@ bool FT6SplineComponentVisualizer::VisProxyHandleClick(FLevelEditorViewportClien
 	}*/
 
 	if (VisProxy && VisProxy->Component.IsValid()){
-		const UT6SplineComponent* Component = CastChecked<const UT6SplineComponent>(VisProxy->Component.Get());
+		const UT6SplineNodeComponent* Component = CastChecked<const UT6SplineNodeComponent>(VisProxy->Component.Get());
 
-		AT6SplineActor* Actor = (AT6SplineActor*)Component->GetOwner();
+		AT6SplineNodeActor* Actor = (AT6SplineNodeActor*)Component->GetOwner();
 
 		if (VisProxy->IsA(T6SplineNodeProxy::StaticGetType())){
 			if (Click.GetKey() != EKeys::RightMouseButton || !SelectedNodes.Contains(Actor)){
@@ -313,7 +313,7 @@ bool FT6SplineComponentVisualizer::VisProxyHandleClick(FLevelEditorViewportClien
 				T6SplineLineProxy* LineProxy = (T6SplineLineProxy*)VisProxy;
 
 				if (Click.GetKey() == EKeys::RightMouseButton){
-					T6Spline Spline((const AT6SplineActor**)LineProxy->CPs);
+					T6Spline Spline((const AT6SplineNodeActor**)LineProxy->CPs);
 
 					FVector SubsegmentStart = Spline.GetValue(0);
 
@@ -350,7 +350,7 @@ bool FT6SplineComponentVisualizer::VisProxyHandleClick(FLevelEditorViewportClien
 	else return false;
 }
 
-void FT6SplineComponentVisualizer::ChangeNodeSelection(AT6SplineActor* Actor, bool bIsCtrlHeld){
+void FT6SplineComponentVisualizer::ChangeNodeSelection(AT6SplineNodeActor* Actor, bool bIsCtrlHeld){
 	if (!bIsCtrlHeld){
 		GEditor->GetSelectedActors()->DeselectAll();
 		GEditor->SelectActor(Actor, true, true);
@@ -436,11 +436,11 @@ void FT6SplineComponentVisualizer::OnDeleteNodes(){
 	const FScopedTransaction Transaction(LOCTEXT("RemoveSpline", "Remove spline"));
 	// Todo: hier alle objecten door itereren, en de connections van deze node toevoegen in hun lijsten
 
-	for (TActorIterator<AT6SplineActor> Iterator(LastSelectedNode->GetWorld()); Iterator; ++Iterator){
-		AT6SplineActor* Node = *Iterator;
+	for (TActorIterator<AT6SplineNodeActor> Iterator(LastSelectedNode->GetWorld()); Iterator; ++Iterator){
+		AT6SplineNodeActor* Node = *Iterator;
 
 		for (int i = 0; i < SelectedNodes.Num(); i++){
-			AT6SplineActor* SelectedNode = SelectedNodes[i];
+			AT6SplineNodeActor* SelectedNode = SelectedNodes[i];
 
 			if (Node->Connections.Find(SelectedNode) != INDEX_NONE){
 				Node->Modify();
@@ -470,19 +470,19 @@ void FT6SplineComponentVisualizer::OnDeleteNodes(){
 void FT6SplineComponentVisualizer::OnDuplicateKey(){
 	const FScopedTransaction Transaction(LOCTEXT("DuplicateSplinePoint", "Duplicate Spline Point"));
 
-	TArray<AT6SplineActor*> SelectedNodes = this->SelectedNodes;
+	TArray<AT6SplineNodeActor*> SelectedNodes = this->SelectedNodes;
 
 	ChangeNodeSelection(nullptr, false);
 
 	for (int i = 0; i < SelectedNodes.Num(); i++){
-		AT6SplineActor* SelectedNode = SelectedNodes[i];
+		AT6SplineNodeActor* SelectedNode = SelectedNodes[i];
 
 		SelectedNode->Modify();
 
 		FActorSpawnParameters SpawnParameters;
 		SpawnParameters.Template = SelectedNode;
 
-		AT6SplineActor* Actor = SelectedNode->GetWorld()->SpawnActor<AT6SplineActor>(SelectedNode->GetClass(), SpawnParameters);
+		AT6SplineNodeActor* Actor = SelectedNode->GetWorld()->SpawnActor<AT6SplineNodeActor>(SelectedNode->GetClass(), SpawnParameters);
 		Actor->Connections.Empty();
 	
 		SelectedNode->Connections.AddUnique(Actor);
@@ -493,7 +493,7 @@ void FT6SplineComponentVisualizer::OnDuplicateKey(){
 	NotifyComponentModified();
 }
 
-void FT6SplineComponentVisualizer::OnInsertKey(AT6SplineActor* Node1, AT6SplineActor* Node2, const FVector& Pos){
+void FT6SplineComponentVisualizer::OnInsertKey(AT6SplineNodeActor* Node1, AT6SplineNodeActor* Node2, const FVector& Pos){
 	const FScopedTransaction Transaction(LOCTEXT("InsertSplinePoint", "Insert Spline Point"));
 
 	Node1->Modify();
@@ -501,7 +501,7 @@ void FT6SplineComponentVisualizer::OnInsertKey(AT6SplineActor* Node1, AT6SplineA
 	FActorSpawnParameters SpawnParameters;
 	SpawnParameters.Template = Node2;
 
-	AT6SplineActor* Actor = Node1->GetWorld()->SpawnActor<AT6SplineActor>(Node1->GetClass(), Pos, FRotator(), SpawnParameters);
+	AT6SplineNodeActor* Actor = Node1->GetWorld()->SpawnActor<AT6SplineNodeActor>(Node1->GetClass(), Pos, FRotator(), SpawnParameters);
 	Actor->Connections.Empty();
 
 	Node1->Connections.Remove(Node2);
