@@ -13,11 +13,11 @@ T6Spline::T6Spline(){
 	//
 }
 
-T6Spline::T6Spline(const AT6SplineActor** CPs){
+T6Spline::T6Spline(const AT6SplineNodeActor** CPs){
 	SetCPs(CPs);
 }
 
-void T6Spline::SetCPs(const AT6SplineActor** CPs){
+void T6Spline::SetCPs(const AT6SplineNodeActor** CPs){
 	const FVector CP0 = CPs[0]->GetTransform().GetTranslation();
 	const FVector CP1 = CPs[1]->GetTransform().GetTranslation();
 	const FVector CP2 = CPs[2]->GetTransform().GetTranslation();
@@ -62,8 +62,8 @@ FVector T6Spline::GetSecondDerivative(float t){
 	return p0 * h00 + m0 * h10 + p1 * h01 + m1 * h11;
 }
 
-AT6SplineActor::AT6SplineActor(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer){
-	Spline = CreateDefaultSubobject<UT6SplineComponent>(TEXT("Spline"));
+AT6SplineNodeActor::AT6SplineNodeActor(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer){
+	Spline = CreateDefaultSubobject<UT6SplineNodeComponent>(TEXT("Spline"));
 
 	RootComponent = Spline;
 }
